@@ -32,3 +32,23 @@ size_t Corpus::size() const
 {
 	return m_words.size();
 }
+
+Corpus::iterator Corpus::begin() noexcept
+{
+	return m_words.begin();
+}
+
+Corpus::iterator Corpus::end() noexcept
+{
+	return m_words.end();
+}
+
+Corpus::const_iterator Corpus::cbegin() const noexcept
+{
+	return m_words.cbegin();
+}
+
+Corpus::const_iterator Corpus::cend() const noexcept
+{
+	return m_words.cend();
+}

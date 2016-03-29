@@ -12,3 +12,18 @@ Morph::Morph(std::string letters, size_t frequency)
   m_frequency{frequency}
 {
 }
+
+std::string Morph::letters() const
+{
+	return m_letters;
+}
+
+size_t Morph::frequency() const
+{
+	return m_frequency;
+}
+
+size_t Morph::length() const
+{
+	return m_letters.size();
+}

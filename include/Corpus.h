@@ -14,11 +14,21 @@ class Morph;
 
 class Corpus
 {
+private:
+	using Collection = std::vector<Morph>;
+	using iterator = Collection::iterator;
+	using const_iterator = Collection::const_iterator;
+
 public:
 	explicit Corpus(std::string wordFile);
 	size_t size() const;
+	iterator begin() noexcept;
+	iterator end() noexcept;
+	const_iterator cbegin() const noexcept;
+	const_iterator cend() const noexcept;
+
 private:
-	std::vector<Morph> m_words;
+	Collection m_words;
 };
 
 #endif /* INCLUDE_CORPUS_H_ */

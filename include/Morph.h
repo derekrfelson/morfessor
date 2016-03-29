@@ -17,7 +17,7 @@ public:
 	explicit Morph(std::string letters, size_t frequency);
 	std::string letters() const;
 	size_t frequency() const;
-	size_t size() const;
+	size_t length() const;
 private:
 	std::string m_letters;
 	size_t m_frequency;
