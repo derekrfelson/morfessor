@@ -5,4 +5,9 @@
  *      Author: Derek Felson
  */
 
-#include "Model.h"
+#include "model.h"
+
+namespace morfessor
+{
+
+} // namespace morfessor

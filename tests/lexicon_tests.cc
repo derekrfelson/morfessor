@@ -5,7 +5,6 @@
  *      Author: Derek Felson
  */
 
-#include "Lexicon.h"
+#include "lexicon.h"
+
 #include <gtest/gtest.h>
-
-

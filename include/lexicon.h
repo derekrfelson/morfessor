@@ -9,13 +9,18 @@
 #define INCLUDE_LEXICON_H_
 
 #include <vector>
+
+namespace morfessor
+{
+
 class Morph;
 
 class Lexicon
 {
-public:
-private:
-	std::vector<Morph> m_morphs;
+ private:
+  std::vector<Morph> morphs_;
 };
+
+} // namespace morfessor
 
 #endif /* INCLUDE_LEXICON_H_ */

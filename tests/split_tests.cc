@@ -1,9 +1,10 @@
 /*
- * SplitTreeTests.cpp
+ * SplitTests.cpp
  *
  *  Created on: Mar 29, 2016
  *      Author: derek
  */
 
-#include "Split.h"
+#include "split.h"
+
 #include <gtest/gtest.h>

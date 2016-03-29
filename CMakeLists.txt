@@ -6,9 +6,9 @@ find_package(Threads)
 include_directories("include")
 link_directories(/usr/local/lib)
 
-file(GLOB TESTS "tests/*.cpp")
-set(SOURCES "src/Corpus.cpp" "src/Lexicon.cpp" "src/Model.cpp" "src/Morph.cpp" "src/Split.cpp")
-set(MAINSOURCE "src/MorfessorProgram.cpp")
+file(GLOB TESTS "tests/*.cc")
+set(SOURCES "src/corpus.cc" "src/lexicon.cc" "src/model.cc" "src/morph.cc" "src/split.cc")
+set(MAINSOURCE "src/morfessor_main.cc")
 
 add_executable(morfessor ${SOURCES} ${MAINSOURCE})
 add_executable(morfessor-tests ${SOURCES} ${TESTS})

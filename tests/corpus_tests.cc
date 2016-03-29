@@ -5,9 +5,13 @@
  *      Author: Derek Felson
  */
 
-#include "Corpus.h"
-#include "Morph.h"
+#include "corpus.h"
+
 #include <gtest/gtest.h>
+
+#include "morph.h"
+
+using Corpus = morfessor::Corpus;
 
 TEST(CorpusTests, EmptyCorpusSize)
 {
