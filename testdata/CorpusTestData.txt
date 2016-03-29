@@ -1,0 +1,4 @@
+548 abandon
+779 deck
+8 decker
+195 declining
