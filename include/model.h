@@ -18,15 +18,15 @@ namespace morfessor
 class Morph;
 class Lexicon;
 class Corpus;
-class Node;
 
 class Model
 {
  private:
   std::vector<Morph> morphs_;
-  std::vector<Node> nodes_;
+  Probability pr_model_given_corpus_;
 };
 
+Model BuildModel(const Corpus& corpus);
 Probability pMorph(const Morph& morph);
 Probability pCorpusGivenModel(const Corpus& corpus, const Model& model);
 Probability pLexicon(const Lexicon& lexicon);

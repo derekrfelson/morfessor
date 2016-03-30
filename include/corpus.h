@@ -20,7 +20,7 @@ class Corpus
 {
  public:
   explicit Corpus(std::string word_file);
-  auto size() const noexcept { return words_.size(); }
+  size_t size() const noexcept { return words_.size(); }
   auto begin() noexcept { return words_.begin(); }
   auto end() noexcept { return words_.end(); }
   auto cbegin() const noexcept { return words_.cbegin(); }

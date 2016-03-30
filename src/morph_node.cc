@@ -5,16 +5,42 @@
  *      Author: Derek Felson
  */
 
+#include "morph_node.h"
+
 #include "corpus.h"
 #include "model.h"
 #include "morph.h"
-#include "split.h"
 
 namespace morfessor
 {
 
-void resplitnode(Node* node, Model* model, const Corpus& corpus)
+SegmentationTree::SegmentationTree() noexcept
+    : nodes_{}
 {
+}
+
+void SegmentationTree::split(std::string morph, size_t split_index)
+{
+
+}
+
+MorphNode::MorphNode(std::string morph, size_t count) noexcept
+    : morph_{morph}, count_{count}, left_child_{nullptr},
+      right_child_{nullptr}
+{
+}
+
+MorphNode::MorphNode(const Morph& morph) noexcept
+    : MorphNode(morph.letters(), morph.frequency())
+{
+}
+
+void resplitnode(MorphNode* node, Model* model, const Corpus& corpus)
+{
+  std::vector<Morph> morphs;
+  morphs.emplace_back("reopen", 1);
+  SegmentationTree segmentations{morphs.begin(), morphs.end()};
+
 	// Node must correspond to an entire word or substring of a word
 /*
 

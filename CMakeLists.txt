@@ -7,7 +7,7 @@ include_directories("include")
 link_directories(/usr/local/lib)
 
 file(GLOB TESTS "tests/*.cc")
-set(SOURCES "src/corpus.cc" "src/lexicon.cc" "src/model.cc" "src/morph.cc" "src/split.cc")
+set(SOURCES "src/corpus.cc" "src/lexicon.cc" "src/model.cc" "src/morph.cc" "src/morph_node.cc")
 set(MAINSOURCE "src/morfessor_main.cc")
 
 add_executable(morfessor ${SOURCES} ${MAINSOURCE})
