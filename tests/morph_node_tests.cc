@@ -68,12 +68,12 @@ TEST(SegmentationTree_Split, CountPreservedWithNoSharedElements)
   segmentations.split("reopen", 2);
   segmentations.split("counter", 5);
 
-  EXPECT_EQ(7, segmentations.at("re"));
-  EXPECT_EQ(7, segmentations.at("reopen"));
-  EXPECT_EQ(7, segmentations.at("open"));
-  EXPECT_EQ(10, segmentations.at("counter"));
-  EXPECT_EQ(10, segmentations.at("count"));
-  EXPECT_EQ(10, segmentations.at("er"));
+  EXPECT_EQ(7, segmentations.at("re").count);
+  EXPECT_EQ(7, segmentations.at("reopen").count);
+  EXPECT_EQ(7, segmentations.at("open").count);
+  EXPECT_EQ(10, segmentations.at("counter").count);
+  EXPECT_EQ(10, segmentations.at("count").count);
+  EXPECT_EQ(10, segmentations.at("er").count);
 }
 
 TEST(SegmentationTree_Split, CountCombinedWithSharedElements)
@@ -85,11 +85,11 @@ TEST(SegmentationTree_Split, CountCombinedWithSharedElements)
   segmentations.split("reopen", 2);
   segmentations.split("retry", 2);
 
-  EXPECT_EQ(7, segmentations.at("reopen"));
-  EXPECT_EQ(7, segmentations.at("open"));
-  EXPECT_EQ(10, segmentations.at("retry"));
-  EXPECT_EQ(10, segmentations.at("try"));
-  EXPECT_EQ(17, segmentations.at("re"));
+  EXPECT_EQ(7, segmentations.at("reopen").count);
+  EXPECT_EQ(7, segmentations.at("open").count);
+  EXPECT_EQ(10, segmentations.at("retry").count);
+  EXPECT_EQ(10, segmentations.at("try").count);
+  EXPECT_EQ(17, segmentations.at("re").count);
 }
 
 TEST(SegmentationTree_Split, CountCombinedWithDeepSharedElements)
@@ -104,10 +104,10 @@ TEST(SegmentationTree_Split, CountCombinedWithDeepSharedElements)
   segmentations.split("retry", 2);
   segmentations.split("trying", 3);
 
-  EXPECT_EQ(3, segmentations.at("re"));
-  EXPECT_EQ(5, segmentations.at("ing"));
-  EXPECT_EQ(1, segmentations.at("open"));
-  EXPECT_EQ(6, segmentations.at("try"));
+  EXPECT_EQ(3, segmentations.at("re").count);
+  EXPECT_EQ(5, segmentations.at("ing").count);
+  EXPECT_EQ(1, segmentations.at("open").count);
+  EXPECT_EQ(6, segmentations.at("try").count);
 }
 
 TEST(SegmentationTree_Remove, CountDecreasedSimpleCase)
@@ -119,13 +119,13 @@ TEST(SegmentationTree_Remove, CountDecreasedSimpleCase)
   segmentations.split("reopen", 2);
   segmentations.split("retry", 2);
 
-  EXPECT_EQ(3, segmentations.at("re"));
+  EXPECT_EQ(3, segmentations.at("re").count);
 
   segmentations.Remove("reopen");
 
   EXPECT_FALSE(segmentations.contains("reopen"));
 
-  EXPECT_EQ(2, segmentations.at("re"));
+  EXPECT_EQ(2, segmentations.at("re").count);
 }
 
 TEST(SegmentationTree_Remove, CountDecreasedHarderCase)
@@ -142,8 +142,8 @@ TEST(SegmentationTree_Remove, CountDecreasedHarderCase)
 
   segmentations.Remove("trying");
 
-  EXPECT_EQ(1, segmentations.at("ing"));
-  EXPECT_EQ(2, segmentations.at("try"));
+  EXPECT_EQ(1, segmentations.at("ing").count);
+  EXPECT_EQ(2, segmentations.at("try").count);
 }
 
 TEST(SegmentationTree_Remove, EmptyDescendantsRemoved)
@@ -160,7 +160,6 @@ TEST(SegmentationTree_Remove, EmptyDescendantsRemoved)
 
   segmentations.Remove("trying");
   segmentations.Remove("retry");
-
 
   EXPECT_FALSE(segmentations.contains("try"));
 }

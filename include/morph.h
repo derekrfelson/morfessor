@@ -17,7 +17,7 @@ namespace morfessor
 class Morph
 {
  public:
-  explicit Morph(std::string letters, size_t frequency);
+  Morph(std::string letters, size_t frequency);
   std::string letters() const noexcept { return letters_; }
   size_t frequency() const noexcept { return frequency_; }
   size_t length() const noexcept { return letters_.length(); }

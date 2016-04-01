@@ -25,51 +25,22 @@ void SegmentationTree::split(const std::string& morph, size_t left_length)
 {
   assert(morph.size() > 1);
   assert(left_length > 0 && left_length < morph.size() - 1);
-  auto node = nodes_.find(morph);
-  assert(node != end(nodes_));
-  assert(!node->first.has_children());
+  auto node = &nodes_.find(morph)->second;
+  assert(!node->has_children());
 
-  auto new_left_node = MorphNode{morph.substr(0, left_length), node->second};
-  auto new_right_node = MorphNode{morph.substr(left_length), node->second};
-  auto left_child = nodes_.find(new_left_node);
-  auto right_child = nodes_.find(new_right_node);
-
-  if (left_child == end(nodes_))
-  {
-    nodes_.emplace(new_left_node, node->second);
-  }
-  else
-  {
-    left_child->second += node->second;
-  }
-  node->first.left_child_ =
-      const_cast<MorphNode*>(&nodes_.find(new_left_node)->first);
-
-  if (right_child == end(nodes_))
-  {
-    nodes_.emplace(new_right_node, node->second);
-  }
-  else
-  {
-    right_child->second += node->second;
-  }
-  node->first.right_child_ =
-      const_cast<MorphNode*>(&nodes_.find(new_right_node)->first);
+  node->left_child = morph.substr(0, left_length);
+  node->right_child = morph.substr(left_length);
+  nodes_[node->left_child].count += node->count;
+  nodes_[node->right_child].count += node->count;
 }
 
-MorphNode::MorphNode(const std::string& morph, size_t count) noexcept
-    : morph_{morph}, left_child_{nullptr}, right_child_{nullptr}
+MorphNode::MorphNode()
+    : MorphNode(0)
 {
 }
 
-MorphNode::MorphNode(const Morph& morph) noexcept
-    : MorphNode(morph.letters(), morph.frequency())
-{
-}
-
-// Converts strings to morph nodes, enabling SegmentationTree.find(string)
-MorphNode::MorphNode(const std::string& morph) noexcept
-    : MorphNode(morph, 0)
+MorphNode::MorphNode(size_t count)
+    : count{count}, left_child{}, right_child{}
 {
 }
 
@@ -80,20 +51,22 @@ MorphNode::MorphNode(const std::string& morph) noexcept
 // node_to_remove: The node to remove
 // subtree: The place to start recursively removing it from
 void SegmentationTree::RemoveNode(const MorphNode& node_to_remove,
-    const MorphNode& subtree)
+    const std::string& subtree_key)
 {
+  auto& subtree = nodes_.at(subtree_key);
+
   // Recursively remove the nodes childrens, if they exist
-  if (subtree.left_child() != nullptr)
+  if (!subtree.left_child.empty())
   {
-    RemoveNode(node_to_remove, *subtree.left_child());
+    RemoveNode(node_to_remove, subtree.left_child);
   }
-  if (subtree.right_child() != nullptr)
+  if (!subtree.right_child.empty())
   {
-    RemoveNode(node_to_remove, *subtree.right_child());
+    RemoveNode(node_to_remove, subtree.right_child);
   }
 
   // Decrease the node count at the subtree
-  nodes_.at(subtree) -= nodes_.at(node_to_remove);
+  subtree.count -= node_to_remove.count;
   // Decrease probabilities if subtree is leaf node
   if (!subtree.has_children())
   {
@@ -101,24 +74,24 @@ void SegmentationTree::RemoveNode(const MorphNode& node_to_remove,
     pr_frequencies_ -= 0;  // TODO: actual logprob
   }
   // If nothing points to the subtree anymore, delete it
-  if (nodes_.at(subtree) == 0)
+  if (subtree.count == 0)
   {
     if (!subtree.has_children())
     {
       pr_lengths_ -= 0;  // TODO: actual logprob
     }
-    nodes_.erase(subtree);
+    nodes_.erase(nodes_.find(subtree_key));
   }
 }
 
-void SegmentationTree::ResplitNode(const MorphNode& node)
+void SegmentationTree::ResplitNode(const std::string& morph)
 {
 	// Node must correspond to an entire word or substring of a word
 
 	// Remove the current representation of the node, if we have it
-	if (nodes_.find(node) != end(nodes_))
+	if (nodes_.find(morph) != end(nodes_))
 	{
-	  RemoveNode(node, node);
+	  RemoveNode(nodes_.at(morph), morph);
 	}
 
 	// First, try the node as a morph of its own
