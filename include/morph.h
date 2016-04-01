@@ -18,9 +18,9 @@ class Morph
 {
  public:
   explicit Morph(std::string letters, size_t frequency);
-  std::string letters() const { return letters_; }
-  size_t frequency() const { return frequency_; }
-  size_t length() const { return letters_.length(); }
+  std::string letters() const noexcept { return letters_; }
+  size_t frequency() const noexcept { return frequency_; }
+  size_t length() const noexcept { return letters_.length(); }
  private:
   std::string letters_;
   size_t frequency_;

@@ -9,7 +9,7 @@
 #define INCLUDE_MORPH_NODE_H_
 
 #include <string>
-#include <unordered_set>
+#include <unordered_map>
 
 #include "morph.h"
 #include "types.h"
@@ -25,14 +25,13 @@ class Model;
 class MorphNode
 {
 public:
-  explicit MorphNode(std::string , size_t count) noexcept;
+  MorphNode(const std::string& morph) noexcept;
+  explicit MorphNode(const std::string& morph, size_t count) noexcept;
   explicit MorphNode(const Morph& morph) noexcept;
   bool has_children() const noexcept {
     return left_child_ != nullptr && right_child_ != nullptr;
   }
   std::string morph() const noexcept { return morph_; }
-  size_t count() const noexcept { return count_; }
-  void set_count(size_t value) noexcept { count_ = value; }
   MorphNode* left_child() const noexcept { return left_child_; }
   MorphNode* right_child() const noexcept { return right_child_; }
   bool operator==(const MorphNode& other) const noexcept {
@@ -42,12 +41,11 @@ public:
 private:
   // Stores the string/substring this node refers to
   std::string morph_;
-  // The number of times it appears in the model
-  size_t count_;
 	// Left and right children in the binary splitting tree.
 	// Will either both be null or both point to a child.
 	MorphNode* left_child_;
 	MorphNode* right_child_;
+	friend class SegmentationTree;
 };
 
 void resplitnode(MorphNode* node, Model* model, const Corpus& corpus);
@@ -74,23 +72,25 @@ namespace morfessor
 // Stores recursive segmentations of a set of words.
 // Example:
 //     SegmentationTree segmentations{};
-//     segmentations.emplace{"reopen", 1};
+//     segmentations.emplace("reopen", 1);
 //     segmentations.split("reopen", 2);
-//     assert(segmentations.contains("re"));
-//     assert(segmentations.contains("open"));
-//     assert(segmentations.contains("reopen"));
-//     assert(segmentations["open"].count() == 1);
-//     assert(segmentations["re"].count() == 1);
-//     assert(segmentations["reopen"].count() == 1);
 class SegmentationTree
 {
  public:
   explicit SegmentationTree() noexcept;
   template <typename InputIterator>
   explicit SegmentationTree(InputIterator first, InputIterator last);
-  void split(std::string morph, size_t split_index);
+  void split(const std::string& morph, size_t split_index);
+  bool contains(const std::string& morph) const {
+    return nodes_.find(morph) != nodes_.end();
+  }
+  void emplace(const std::string& morph, size_t frequency) {
+    nodes_.emplace(morph, frequency);
+  }
+  size_t& at(const std::string& morph) { return nodes_.at(morph); }
+  const size_t& at(const std::string& morph) const { return nodes_.at(morph); }
  private:
-  std::unordered_set<MorphNode> nodes_;
+  std::unordered_map<MorphNode, size_t> nodes_;
 };
 
 template <typename InputIterator>
@@ -98,7 +98,8 @@ SegmentationTree::SegmentationTree(InputIterator first, InputIterator last)
 {
   while (first != last)
   {
-    nodes_.emplace(*first);
+    nodes_.emplace(first->letters(), first->frequency());
+    ++first;
   }
 }
 

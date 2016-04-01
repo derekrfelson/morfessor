@@ -7,6 +7,8 @@
 
 #include "morph_node.h"
 
+#include <cassert>
+
 #include "corpus.h"
 #include "model.h"
 #include "morph.h"
@@ -19,19 +21,51 @@ SegmentationTree::SegmentationTree() noexcept
 {
 }
 
-void SegmentationTree::split(std::string morph, size_t split_index)
+void SegmentationTree::split(const std::string& morph, size_t left_length)
 {
+  assert(morph.size() > 1);
+  assert(left_length > 0 && left_length < morph.size() - 1);
+  auto node = nodes_.find(morph);
+  assert(node != end(nodes_));
+  assert(!node->first.has_children());
 
+  auto new_left_node = MorphNode{morph.substr(0, left_length), node->second};
+  auto new_right_node = MorphNode{morph.substr(left_length), node->second};
+  auto left_child = nodes_.find(new_left_node);
+  auto right_child = nodes_.find(new_right_node);
+
+  if (left_child == end(nodes_))
+  {
+    nodes_.emplace(new_left_node, node->second);
+  }
+  else
+  {
+    left_child->second += node->second;
+  }
+
+  if (right_child == end(nodes_))
+  {
+    nodes_.emplace(new_right_node, node->second);
+  }
+  else
+  {
+    right_child->second += node->second;
+  }
 }
 
-MorphNode::MorphNode(std::string morph, size_t count) noexcept
-    : morph_{morph}, count_{count}, left_child_{nullptr},
-      right_child_{nullptr}
+MorphNode::MorphNode(const std::string& morph, size_t count) noexcept
+    : morph_{morph}, left_child_{nullptr}, right_child_{nullptr}
 {
 }
 
 MorphNode::MorphNode(const Morph& morph) noexcept
     : MorphNode(morph.letters(), morph.frequency())
+{
+}
+
+// Converts strings to morph nodes, enabling SegmentationTree.find(string)
+MorphNode::MorphNode(const std::string& morph) noexcept
+    : MorphNode(morph, 0)
 {
 }
 
