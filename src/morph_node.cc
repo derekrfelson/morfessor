@@ -42,6 +42,8 @@ void SegmentationTree::split(const std::string& morph, size_t left_length)
   {
     left_child->second += node->second;
   }
+  node->first.left_child_ =
+      const_cast<MorphNode*>(&nodes_.find(new_left_node)->first);
 
   if (right_child == end(nodes_))
   {
@@ -51,6 +53,8 @@ void SegmentationTree::split(const std::string& morph, size_t left_length)
   {
     right_child->second += node->second;
   }
+  node->first.right_child_ =
+      const_cast<MorphNode*>(&nodes_.find(new_right_node)->first);
 }
 
 MorphNode::MorphNode(const std::string& morph, size_t count) noexcept
@@ -69,44 +73,65 @@ MorphNode::MorphNode(const std::string& morph) noexcept
 {
 }
 
-void resplitnode(MorphNode* node, Model* model, const Corpus& corpus)
+// Recursively removes a node, rooted at a subtree, decreasing the node count
+// of all its descendants and cleaning up any descendants that now have
+// nothing pointing to them.
+//
+// node_to_remove: The node to remove
+// subtree: The place to start recursively removing it from
+void SegmentationTree::RemoveNode(const MorphNode& node_to_remove,
+    const MorphNode& subtree)
 {
-  std::vector<Morph> morphs;
-  morphs.emplace_back("reopen", 1);
-  SegmentationTree segmentations{morphs.begin(), morphs.end()};
+  // Recursively remove the nodes childrens, if they exist
+  if (subtree.left_child() != nullptr)
+  {
+    RemoveNode(node_to_remove, *subtree.left_child());
+  }
+  if (subtree.right_child() != nullptr)
+  {
+    RemoveNode(node_to_remove, *subtree.right_child());
+  }
 
+  // Decrease the node count at the subtree
+  nodes_.at(subtree) -= nodes_.at(node_to_remove);
+  // Decrease probabilities if subtree is leaf node
+  if (!subtree.has_children())
+  {
+    pr_corpus_given_model_ -= 0;  // TODO: actual logprob
+    pr_frequencies_ -= 0;  // TODO: actual logprob
+  }
+  // If nothing points to the subtree anymore, delete it
+  if (nodes_.at(subtree) == 0)
+  {
+    if (!subtree.has_children())
+    {
+      pr_lengths_ -= 0;  // TODO: actual logprob
+    }
+    nodes_.erase(subtree);
+  }
+}
+
+void SegmentationTree::ResplitNode(const MorphNode& node)
+{
 	// Node must correspond to an entire word or substring of a word
-/*
 
-
-	// Remove the current representation of the node
-	if (model.contains(node))
+	// Remove the current representation of the node, if we have it
+	if (nodes_.find(node) != end(nodes_))
 	{
-		for (auto& m : node.descendants())
-		{
-			m.count -= node.count;
-			if (!m.hasChildren())
-			{
-				// Decrease L(corpus|M) and L(frequencies) accordingly
-			}
-			if (m.count == 0)
-			{
-				model.remove(m);
-				// Subtract contribution of m from L(lengths) if m is leaf node
-			}
-		}
+	  RemoveNode(node, node);
 	}
 
 	// First, try the node as a morph of its own
-	if (!model.contains(node))
-	{
-		model.insert(node);
-	}
+	//if (!model.contains(node))
+	//{
+	//	model.insert(node);
+	//}
 	// increase L(corpus|M) and L(frequencies) accordingly
 	// add contribution of node to L(lengths)
 	// bestSolution = [L(M | corpus), node]
 
 	// Then try every split of the node into two substrings
+	/*
 	subtract contribution of node from L(M | corpus), but leave node in data structure
 
 	store current L(M | corpus) and data structure
