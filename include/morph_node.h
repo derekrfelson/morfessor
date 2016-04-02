@@ -23,6 +23,7 @@
 #ifndef INCLUDE_MORPH_NODE_H_
 #define INCLUDE_MORPH_NODE_H_
 
+#include <cmath>
 #include <cassert>
 #include <string>
 #include <unordered_map>
@@ -170,6 +171,12 @@ class SegmentationTree
   void RemoveNode(const MorphNode& node_to_remove,
       const std::string& subtree_key);
 
+  /// Calculates the probability of a morph.
+  Probability pMorph(const Morph& morph)
+  {
+     return std::log(morph.frequency() / total_morph_tokens_);
+  }
+
   /// Calculates the probability of the corpus given the model.
   Probability ProbabilityOfCorpusGivenModel() const;
 
@@ -181,6 +188,8 @@ class SegmentationTree
   Probability pr_corpus_given_model_ = 0;
   Probability pr_frequencies_ = 0;
   Probability pr_lengths_ = 0;
+
+
 
   /// Number of morph tokens in the data structure. Whereas size()
   /// returns the number of unique morphs, this number factors in

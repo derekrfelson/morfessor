@@ -26,7 +26,6 @@
 #include <array>
 
 #include "corpus.h"
-#include "model.h"
 #include "morph.h"
 
 namespace morfessor
