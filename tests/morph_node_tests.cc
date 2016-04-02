@@ -54,9 +54,9 @@ TEST(SegmentationTree_Split, OneNode)
   EXPECT_TRUE(segmentations.contains("re"));
   EXPECT_TRUE(segmentations.contains("open"));
   EXPECT_TRUE(segmentations.contains("reopen"));
-  EXPECT_EQ(1, segmentations.at("open"));
-  EXPECT_EQ(1, segmentations.at("re"));
-  EXPECT_EQ(1, segmentations.at("reopen"));
+  EXPECT_EQ(1, segmentations.at("open").count);
+  EXPECT_EQ(1, segmentations.at("re").count);
+  EXPECT_EQ(1, segmentations.at("reopen").count);
 }
 
 TEST(SegmentationTree_Split, CountPreservedWithNoSharedElements)
