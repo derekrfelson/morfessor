@@ -37,7 +37,7 @@ namespace morfessor
 /// Represents a possible split or a word or morph into two smaller morphs.
 struct MorphNode
 {
-public:
+ public:
   /// C'tor for an empty node with no children.
   MorphNode();
 
@@ -54,11 +54,11 @@ public:
     return !(left_child.empty() && right_child.empty());
   }
 
-  /// Stores the number of times this morph appears in the corpus
+  /// Stores the number of times this morph appears in the corpus.
   size_t count;
 
-	/// Key for the left child in the data structure. Equal to the empty
-  /// string if there is no left child.
+	/// Key for the left child in the data structure. Equal to the empty string
+  /// if there is no left child.
 	std::string left_child;
 
 	/// Key for the right child in the data structure. Equal to the empty
@@ -188,8 +188,6 @@ class SegmentationTree
   Probability pr_corpus_given_model_ = 0;
   Probability pr_frequencies_ = 0;
   Probability pr_lengths_ = 0;
-
-
 
   /// Number of morph tokens in the data structure. Whereas size()
   /// returns the number of unique morphs, this number factors in
