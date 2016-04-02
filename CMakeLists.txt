@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.2.2)
 project (morfessor)
 project (morfessor-tests)
+set(CMAKE_BUILD_TYPE Debug)
 
 find_package(Threads)
 include_directories("include")
