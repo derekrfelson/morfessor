@@ -111,7 +111,6 @@ class SegmentationTree
   {
     auto node = nodes_.find(morph);
     assert(node != end(nodes_));
-    total_morph_tokens_ -= node->second.count;
     RemoveNode(node->second, node->first);
   }
 
@@ -128,6 +127,19 @@ class SegmentationTree
   /// @param morph The word or morph to recursively split.
   void ResplitNode(const std::string& morph);
 
+  /// Calculates the probability of a morph. The given word or morph must
+  /// be in the data structure.
+  /// @param morph The word or morph you want the probability of.
+  Probability ProbabilityOfMorph(const std::string& morph) const
+  {
+    assert(contains(morph));
+    return std::log(static_cast<Probability>(nodes_.at(morph).count)
+        / total_morph_tokens_);
+  }
+
+  /// Calculates the probability of the corpus given the model.
+  Probability ProbabilityOfCorpusGivenModel() const;
+
   /// Returns true if the given morph is in the data structure.
   /// @param morph The word or morph to look for.
   bool contains(const std::string& morph) const {
@@ -140,6 +152,11 @@ class SegmentationTree
     auto ret = nodes_.emplace(morph, frequency);
     //assert(ret.second);  // true iff element did not exist before
     total_morph_tokens_ += frequency;
+  }
+
+  /// \overload
+  void emplace(const Morph& morph) {
+    emplace(morph.letters(), morph.frequency());
   }
 
   /// Returns the morph node corresponding to the given morph.
@@ -170,15 +187,6 @@ class SegmentationTree
   /// @param subtree_key The word or morph to remove the node from.
   void RemoveNode(const MorphNode& node_to_remove,
       const std::string& subtree_key);
-
-  /// Calculates the probability of a morph.
-  Probability pMorph(const Morph& morph)
-  {
-     return std::log(morph.frequency() / total_morph_tokens_);
-  }
-
-  /// Calculates the probability of the corpus given the model.
-  Probability ProbabilityOfCorpusGivenModel() const;
 
   /// The data structure containing the morphs and their splits.
   std::unordered_map<std::string, MorphNode> nodes_;

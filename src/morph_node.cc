@@ -49,12 +49,23 @@ void SegmentationTree::Split(const std::string& morph, size_t left_length)
   node->right_child = morph.substr(left_length);
   nodes_[node->left_child].count += node->count;
   nodes_[node->right_child].count += node->count;
-  total_morph_tokens_ += 2 * node->count;
+
+  // We only count leaf nodes as tokens, and we're losing one leaf node
+  // and adding two every time we split.
+  total_morph_tokens_ += node->count;
 }
 
 Probability SegmentationTree::ProbabilityOfCorpusGivenModel() const
 {
   Probability sum = 0;
+  for (const auto& iter : nodes_)
+  {
+    if (!iter.second.has_children())
+    {
+      sum += ProbabilityOfMorph(iter.first);
+    }
+  }
+  return sum;
 }
 
 void SegmentationTree::RemoveNode(const MorphNode& node_to_remove,
@@ -73,10 +84,13 @@ void SegmentationTree::RemoveNode(const MorphNode& node_to_remove,
   }
 
   // Decrease the node count at the subtree
-  subtree.count -= node_to_remove.count;
+  auto count_reduction = node_to_remove.count;
+  subtree.count -= count_reduction;
+
   // Decrease probabilities if subtree is leaf node
   if (!subtree.has_children())
   {
+    total_morph_tokens_ -= count_reduction;
     pr_corpus_given_model_ -= 0;  // TODO: actual logprob
     pr_frequencies_ -= 0;  // TODO: actual logprob
   }

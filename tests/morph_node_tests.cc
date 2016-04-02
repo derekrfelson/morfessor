@@ -22,6 +22,7 @@
 
 #include "morph_node.h"
 
+#include <cmath>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -250,4 +251,146 @@ TEST(SegmentationTree_Optimize, TwoWords)
   EXPECT_EQ(2, segmentations.at("redo").count);
   ASSERT_TRUE(segmentations.contains("re"));
   EXPECT_EQ(3, segmentations.at("re").count);
+}
+
+TEST(SegmentationTree_ProbabilityOfMorph, NoSplits)
+{
+  SegmentationTree st{};
+
+  st.emplace("reopen", 1);
+  EXPECT_EQ(std::log(1.0), st.ProbabilityOfMorph("reopen"));
+
+  st.emplace("redo", 2);
+  EXPECT_EQ(std::log(1.0/3.0), st.ProbabilityOfMorph("reopen"));
+  EXPECT_EQ(std::log(2.0/3.0), st.ProbabilityOfMorph("redo"));
+
+  st.emplace("trying", 4);
+  EXPECT_EQ(std::log(1.0/7.0), st.ProbabilityOfMorph("reopen"));
+  EXPECT_EQ(std::log(2.0/7.0), st.ProbabilityOfMorph("redo"));
+  EXPECT_EQ(std::log(4.0/7.0), st.ProbabilityOfMorph("trying"));
+}
+
+TEST(SegmentationTree_ProbabilityOfMorph, Splits)
+{
+  SegmentationTree st{};
+  st.emplace("reopen", 1);
+  st.emplace("redo", 2);
+  st.emplace("trying", 4);
+  ASSERT_EQ(std::log(1.0/7.0), st.ProbabilityOfMorph("reopen"));
+  ASSERT_EQ(std::log(2.0/7.0), st.ProbabilityOfMorph("redo"));
+  ASSERT_EQ(std::log(4.0/7.0), st.ProbabilityOfMorph("trying"));
+
+  st.Split("reopen", 2);
+  EXPECT_EQ(std::log(1.0/8.0), st.ProbabilityOfMorph("re"));
+  EXPECT_EQ(std::log(1.0/8.0), st.ProbabilityOfMorph("open"));
+  EXPECT_EQ(std::log(2.0/8.0), st.ProbabilityOfMorph("redo"));
+  EXPECT_EQ(std::log(4.0/8.0), st.ProbabilityOfMorph("trying"));
+
+  st.Split("redo", 2);
+  EXPECT_EQ(std::log(3.0/10.0), st.ProbabilityOfMorph("re"));
+  EXPECT_EQ(std::log(1.0/10.0), st.ProbabilityOfMorph("open"));
+  EXPECT_EQ(std::log(2.0/10.0), st.ProbabilityOfMorph("do"));
+  EXPECT_EQ(std::log(4.0/10.0), st.ProbabilityOfMorph("trying"));
+
+  st.Split("trying", 3);
+  EXPECT_EQ(std::log(3.0/14.0), st.ProbabilityOfMorph("re"));
+  EXPECT_EQ(std::log(1.0/14.0), st.ProbabilityOfMorph("open"));
+  EXPECT_EQ(std::log(2.0/14.0), st.ProbabilityOfMorph("do"));
+  EXPECT_EQ(std::log(4.0/14.0), st.ProbabilityOfMorph("try"));
+  EXPECT_EQ(std::log(4.0/14.0), st.ProbabilityOfMorph("ing"));
+}
+
+TEST(SegmentationTree_ProbabilityOfMorph, RemoveUnshared)
+{
+  SegmentationTree st{};
+  st.emplace("reopen", 1);
+  st.emplace("doing", 2);
+  st.emplace("trying", 4);
+  st.Split("reopen", 2);
+  st.Split("doing", 2);
+  st.Split("trying", 3);
+  ASSERT_EQ(std::log(1.0/14.0), st.ProbabilityOfMorph("re"));
+  ASSERT_EQ(std::log(1.0/14.0), st.ProbabilityOfMorph("open"));
+  ASSERT_EQ(std::log(2.0/14.0), st.ProbabilityOfMorph("do"));
+  ASSERT_EQ(std::log(6.0/14.0), st.ProbabilityOfMorph("ing"));
+  ASSERT_EQ(std::log(4.0/14.0), st.ProbabilityOfMorph("try"));
+
+  st.Remove("reopen");
+  ASSERT_FALSE(st.contains("reopen"));
+  ASSERT_FALSE(st.contains("re"));
+  ASSERT_FALSE(st.contains("open"));
+  EXPECT_EQ(std::log(2.0/12.0), st.ProbabilityOfMorph("do"));
+  EXPECT_EQ(std::log(6.0/12.0), st.ProbabilityOfMorph("ing"));
+  EXPECT_EQ(std::log(4.0/12.0), st.ProbabilityOfMorph("try"));
+}
+
+TEST(SegmentationTree_ProbabilityOfMorph, RemoveShallowShared)
+{
+  SegmentationTree st{};
+  st.emplace("reopen", 1);
+  st.emplace("doing", 2);
+  st.emplace("trying", 4);
+  st.Split("reopen", 2);
+  st.Split("doing", 2);
+  st.Split("trying", 3);
+  ASSERT_EQ(std::log(1.0/14.0), st.ProbabilityOfMorph("re"));
+  ASSERT_EQ(std::log(1.0/14.0), st.ProbabilityOfMorph("open"));
+  ASSERT_EQ(std::log(2.0/14.0), st.ProbabilityOfMorph("do"));
+  ASSERT_EQ(std::log(6.0/14.0), st.ProbabilityOfMorph("ing"));
+  ASSERT_EQ(std::log(4.0/14.0), st.ProbabilityOfMorph("try"));
+
+  st.Remove("doing");
+  ASSERT_FALSE(st.contains("doing"));
+  ASSERT_FALSE(st.contains("do"));
+  EXPECT_EQ(std::log(1.0/10.0), st.ProbabilityOfMorph("re"));
+  EXPECT_EQ(std::log(1.0/10.0), st.ProbabilityOfMorph("open"));
+  EXPECT_EQ(std::log(4.0/10.0), st.ProbabilityOfMorph("ing"));
+  EXPECT_EQ(std::log(4.0/10.0), st.ProbabilityOfMorph("try"));
+}
+
+TEST(SegmentationTree_ProbabilityOfMorph, RemoveDeepShared)
+{
+  SegmentationTree st{};
+  st.emplace("reopen", 1);
+  st.emplace("redoing", 2);
+  st.emplace("trying", 4);
+  st.Split("reopen", 2);
+  st.Split("redoing", 2);
+  st.Split("doing", 2);
+  st.Split("trying", 3);
+  ASSERT_EQ(std::log(3.0/16.0), st.ProbabilityOfMorph("re"));
+  ASSERT_EQ(std::log(1.0/16.0), st.ProbabilityOfMorph("open"));
+  ASSERT_EQ(std::log(2.0/16.0), st.ProbabilityOfMorph("do"));
+  ASSERT_EQ(std::log(4.0/16.0), st.ProbabilityOfMorph("try"));
+  ASSERT_EQ(std::log(6.0/16.0), st.ProbabilityOfMorph("ing"));
+
+  st.Remove("redoing");
+  ASSERT_FALSE(st.contains("redoing"));
+  ASSERT_FALSE(st.contains("doing"));
+  ASSERT_FALSE(st.contains("do"));
+  EXPECT_EQ(std::log(1.0/10.0), st.ProbabilityOfMorph("re"));
+  EXPECT_EQ(std::log(1.0/10.0), st.ProbabilityOfMorph("open"));
+  EXPECT_EQ(std::log(4.0/10.0), st.ProbabilityOfMorph("try"));
+  EXPECT_EQ(std::log(4.0/10.0), st.ProbabilityOfMorph("ing"));
+}
+
+TEST(SegmentationTree_ProbabilityOfCorpusGivenModel, ThreeMorphs)
+{
+  SegmentationTree st{};
+  st.emplace("reopen", 1);
+  st.emplace("redoing", 2);
+  st.emplace("trying", 4);
+  st.Split("reopen", 2);
+  st.Split("redoing", 2);
+  st.Split("doing", 2);
+  st.Split("trying", 3);
+  ASSERT_EQ(std::log(3.0/16.0), st.ProbabilityOfMorph("re"));
+  ASSERT_EQ(std::log(1.0/16.0), st.ProbabilityOfMorph("open"));
+  ASSERT_EQ(std::log(2.0/16.0), st.ProbabilityOfMorph("do"));
+  ASSERT_EQ(std::log(4.0/16.0), st.ProbabilityOfMorph("try"));
+  ASSERT_EQ(std::log(6.0/16.0), st.ProbabilityOfMorph("ing"));
+
+  auto correct_sum = std::log(3.0/16.0) + std::log(1.0/16.0)
+      + std::log(2.0/16.0) + std::log(4.0/16.0) + std::log(6.0/16.0);
+  EXPECT_EQ(correct_sum, st.ProbabilityOfCorpusGivenModel());
 }
