@@ -51,9 +51,7 @@ struct MorphNode
   /// Returns true if the node has a left and right child. Note that in any
   /// valid program state, there will either be both a left and right child
   /// or no children at all.
-  bool has_children() const noexcept {
-    return !(left_child.empty() && right_child.empty());
-  }
+  bool has_children() const noexcept;
 
   /// Stores the number of times this morph appears in the corpus.
   size_t count;
@@ -86,16 +84,7 @@ class SegmentationTree
   /// @param first Beginning of morph container to copy from.
   /// @param last End of morph container to copy from.
   template <typename InputIterator>
-  explicit SegmentationTree(InputIterator first, InputIterator last)
-  {
-    while (first != last)
-    {
-      total_morph_tokens_ += first->frequency();
-      unique_morph_types_ += 1;
-      nodes_.emplace(first->letters(), first->frequency());
-      ++first;
-    }
-  }
+  explicit SegmentationTree(InputIterator first, InputIterator last);
 
   /// Splits a morph in the segmentation tree into two parts. The morph must be
   /// in the segmentation tree already and must not have any children. The split
@@ -109,12 +98,7 @@ class SegmentationTree
   /// the frequency counts of its descendants, and cleans up any leaf
   /// nodes that no longer have anything referencing them.
   /// @param morph The morph or word to remove.
-  void Remove(const std::string morph)
-  {
-    auto node = nodes_.find(morph);
-    assert(node != end(nodes_));
-    RemoveNode(node->second, node->first);
-  }
+  void Remove(const std::string morph);
 
   /// Updates the data structure by recursively finding the best split
   /// for each morph.
@@ -132,58 +116,37 @@ class SegmentationTree
   /// Calculates the probability of a morph. The given word or morph must
   /// be in the data structure.
   /// @param morph The word or morph you want the probability of.
-  Probability ProbabilityOfMorph(const std::string& morph) const
-  {
-    assert(contains(morph));
-    return std::log(static_cast<Probability>(nodes_.at(morph).count)
-        / total_morph_tokens_);
-  }
+  Probability ProbabilityOfMorph(const std::string& morph) const;
 
   /// Calculates the probability of the corpus given the model.
   Probability ProbabilityOfCorpusGivenModel() const;
 
-  Probability ProbabilityFromImplicitFrequencies() const
-  {
-    return -std::log(boost::math::binomial_coefficient<Probability>(
-        total_morph_tokens_ - 1, unique_morph_types_ - 1));
-  }
+  /// Calculates the contribution of the frequencies of the morphs
+  /// to the probability of the lexicon given the model. Uses the implicit
+  /// version of the frequency calculation, which involves an uninformative
+  /// prior that does not take individual morph frequencies into account.
+  Probability ProbabilityFromImplicitFrequencies() const;
 
   /// Returns true if the given morph is in the data structure.
   /// @param morph The word or morph to look for.
-  bool contains(const std::string& morph) const {
-    return nodes_.find(morph) != nodes_.end();
-  }
+  bool contains(const std::string& morph) const;
 
   /// Adds the given morph (with the given frequency) to the data structure.
   /// Requires that the given morph is not already in the data structure.
-  void emplace(const std::string& morph, size_t frequency) {
-    auto ret = nodes_.emplace(morph, frequency);
-    //assert(ret.second);  // true iff element did not exist before
-    total_morph_tokens_ += frequency;
-    unique_morph_types_ += 1;
-  }
-
-  /// \overload
-  void emplace(const Morph& morph) {
-    emplace(morph.letters(), morph.frequency());
-  }
+  void emplace(const std::string& morph, size_t frequency);
 
   /// Returns the morph node corresponding to the given morph.
   /// @param morph The given morph or word to look up.
   /// @throw out_of_range exception if the morph was not found.
-  MorphNode& at(const std::string& morph) {
-    return nodes_.at(morph);
-  }
+  MorphNode& at(const std::string& morph);
 
   /// Returns the morph node corresponding to the given morph.
   /// @param morph The given morph or word to look up.
   /// @throw out_of_range exception if the morph was not found.
-  const MorphNode& at(const std::string& morph) const {
-    return nodes_.at(morph);
-  }
+  const MorphNode& at(const std::string& morph) const;
 
   /// Returns the number of unique morphs in the data structure.
-  size_t size() const noexcept { return nodes_.size(); }
+  size_t size() const noexcept;
 
  private:
   /// Recursively removes a node rooted at a subtree. This is needed
@@ -215,6 +178,63 @@ class SegmentationTree
   // this number ignores the frequency, only counting each unique morph once.
   size_t unique_morph_types_ = 0;
 };
+
+inline bool MorphNode::has_children() const noexcept {
+  return !(left_child.empty() && right_child.empty());
+}
+
+template <typename InputIterator>
+SegmentationTree::SegmentationTree(InputIterator first, InputIterator last) {
+  while (first != last) {
+    total_morph_tokens_ += first->frequency();
+    unique_morph_types_ += 1;
+    nodes_.emplace(first->letters(), first->frequency());
+    ++first;
+  }
+}
+
+inline void SegmentationTree::Remove(const std::string morph) {
+  auto node = nodes_.find(morph);
+  assert(node != end(nodes_));
+  RemoveNode(node->second, node->first);
+}
+
+inline Probability SegmentationTree::ProbabilityOfMorph(
+    const std::string& morph) const {
+  assert(contains(morph));
+  return std::log(static_cast<Probability>(nodes_.at(morph).count)
+      / total_morph_tokens_);
+}
+
+inline Probability
+SegmentationTree::ProbabilityFromImplicitFrequencies() const {
+  return -std::log(boost::math::binomial_coefficient<Probability>(
+      total_morph_tokens_ - 1, unique_morph_types_ - 1));
+}
+
+inline bool SegmentationTree::contains(const std::string& morph) const {
+  return nodes_.find(morph) != nodes_.end();
+}
+
+inline void SegmentationTree::emplace(const std::string& morph,
+    size_t frequency) {
+  auto ret = nodes_.emplace(morph, frequency);
+  //assert(ret.second);  // true iff element did not exist before
+  total_morph_tokens_ += frequency;
+  unique_morph_types_ += 1;
+}
+
+inline MorphNode& SegmentationTree::at(const std::string& morph) {
+  return nodes_.at(morph);
+}
+
+inline const MorphNode& SegmentationTree::at(const std::string& morph) const {
+  return nodes_.at(morph);
+}
+
+inline size_t SegmentationTree::size() const noexcept {
+  return nodes_.size();
+}
 
 } // namespace morfessor
 
