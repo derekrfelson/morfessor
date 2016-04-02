@@ -27,6 +27,7 @@
 #include <cassert>
 #include <string>
 #include <unordered_map>
+#include <boost/math/special_functions/binomial.hpp>
 
 #include "morph.h"
 #include "types.h"
@@ -90,6 +91,7 @@ class SegmentationTree
     while (first != last)
     {
       total_morph_tokens_ += first->frequency();
+      unique_morph_types_ += 1;
       nodes_.emplace(first->letters(), first->frequency());
       ++first;
     }
@@ -140,6 +142,12 @@ class SegmentationTree
   /// Calculates the probability of the corpus given the model.
   Probability ProbabilityOfCorpusGivenModel() const;
 
+  Probability ProbabilityFromImplicitFrequencies() const
+  {
+    return -std::log(boost::math::binomial_coefficient<Probability>(
+        total_morph_tokens_ - 1, unique_morph_types_ - 1));
+  }
+
   /// Returns true if the given morph is in the data structure.
   /// @param morph The word or morph to look for.
   bool contains(const std::string& morph) const {
@@ -152,6 +160,7 @@ class SegmentationTree
     auto ret = nodes_.emplace(morph, frequency);
     //assert(ret.second);  // true iff element did not exist before
     total_morph_tokens_ += frequency;
+    unique_morph_types_ += 1;
   }
 
   /// \overload
@@ -197,11 +206,14 @@ class SegmentationTree
   Probability pr_frequencies_ = 0;
   Probability pr_lengths_ = 0;
 
-  /// Number of morph tokens in the data structure. Whereas size()
-  /// returns the number of unique morphs, this number factors in
-  /// the frequency of each morph in the corpus, as well as any
-  /// changes due to splits or removals.
+  /// Number of morph tokens in the data structure. Whereas unique_morph_types_
+  /// equals the number of unique morphs, this number factors in the frequency
+  /// of each morph in the corpus.
   size_t total_morph_tokens_ = 0;
+
+  // Number of unique morphs in the data structure. Unlike total_morph_tokens_,
+  // this number ignores the frequency, only counting each unique morph once.
+  size_t unique_morph_types_ = 0;
 };
 
 } // namespace morfessor

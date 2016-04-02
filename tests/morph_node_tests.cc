@@ -26,11 +26,13 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include <boost/math/special_functions/binomial.hpp>
 
 #include "morph.h"
 
 using Morph = morfessor::Morph;
 using SegmentationTree = morfessor::SegmentationTree;
+auto binomial = &boost::math::binomial_coefficient<double>;
 
 TEST(SegmentationTree_IteratorConstructor, Empty)
 {
@@ -393,4 +395,63 @@ TEST(SegmentationTree_ProbabilityOfCorpusGivenModel, ThreeMorphs)
   auto correct_sum = std::log(3.0/16.0) + std::log(1.0/16.0)
       + std::log(2.0/16.0) + std::log(4.0/16.0) + std::log(6.0/16.0);
   EXPECT_EQ(correct_sum, st.ProbabilityOfCorpusGivenModel());
+}
+
+class SegmentationTreeProbabililtyTests : public ::testing::Test {
+ protected:
+  virtual void SetUp() {
+    st = SegmentationTree{};
+    st.emplace("reopen", 1);
+    st.emplace("redoing", 2);
+    st.emplace("trying", 4);
+  }
+
+  virtual void TearDown() {
+  }
+
+  void split() {
+    st.Split("reopen", 2);
+    st.Split("redoing", 2);
+    st.Split("doing", 2);
+    st.Split("trying", 3);
+  }
+
+  SegmentationTree st;
+};
+
+TEST_F(SegmentationTreeProbabililtyTests,
+    ProbabilityFromImplicitFrequencies_WithUnsplitCorpus)
+{
+  // Morph tokens : unique morphs ratio = 7:3
+  ASSERT_EQ(-std::log(binomial(6, 2)),
+      st.ProbabilityFromImplicitFrequencies());
+}
+
+TEST_F(SegmentationTreeProbabililtyTests,
+    ProbabilityFromImplicitFrequencies_WithSplitCorpus)
+{
+  split();
+  // Morph tokens : unique morphs ratio = 16:5
+  ASSERT_EQ(-std::log(binomial(15, 4)),
+      st.ProbabilityFromImplicitFrequencies());
+}
+
+TEST_F(SegmentationTreeProbabililtyTests,
+    ProbabilityFromImplicitFrequencies_AfterShallowRemoval)
+{
+  split();
+  st.Remove("reopen");
+  // Morph tokens : unique morphs ratio = 14:4
+  ASSERT_EQ(-std::log(binomial(13, 3)),
+      st.ProbabilityFromImplicitFrequencies());
+}
+
+TEST_F(SegmentationTreeProbabililtyTests,
+    ProbabilityFromImplicitFrequencies_AfterDeepRemoval)
+{
+  split();
+  st.Remove("redoing");
+  // Morph tokens : unique morphs ratio = 10:4
+  ASSERT_EQ(-std::log(binomial(9, 3)),
+      st.ProbabilityFromImplicitFrequencies());
 }
