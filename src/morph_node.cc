@@ -8,6 +8,7 @@
 #include "morph_node.h"
 
 #include <cassert>
+#include <array>
 
 #include "corpus.h"
 #include "model.h"
@@ -16,16 +17,16 @@
 namespace morfessor
 {
 
-SegmentationTree::SegmentationTree() noexcept
+SegmentationTree::SegmentationTree()
     : nodes_{}
 {
 }
 
-void SegmentationTree::split(const std::string& morph, size_t left_length)
+void SegmentationTree::Split(const std::string& morph, size_t left_length)
 {
   assert(morph.size() > 1);
   assert(left_length > 0 && left_length < morph.size() - 1);
-  auto node = &nodes_.find(morph)->second;
+  MorphNode* node = &nodes_.find(morph)->second;
   assert(!node->has_children());
 
   node->left_child = morph.substr(0, left_length);
@@ -53,7 +54,7 @@ MorphNode::MorphNode(size_t count)
 void SegmentationTree::RemoveNode(const MorphNode& node_to_remove,
     const std::string& subtree_key)
 {
-  auto& subtree = nodes_.at(subtree_key);
+  MorphNode& subtree = nodes_.at(subtree_key);
 
   // Recursively remove the nodes childrens, if they exist
   if (!subtree.left_child.empty())
@@ -84,9 +85,24 @@ void SegmentationTree::RemoveNode(const MorphNode& node_to_remove,
   }
 }
 
+// Builds the best model given the morphs and frequencies currently known
+void SegmentationTree::Optimize()
+{
+  std::vector<std::string> keys;
+  for (const auto& node_pair : nodes_)
+  {
+    keys.push_back(node_pair.first);
+  }
+
+  for (const auto& key : keys)
+  {
+    ResplitNode(key);
+  }
+}
+
 void SegmentationTree::ResplitNode(const std::string& morph)
 {
-	// Node must correspond to an entire word or substring of a word
+  auto frequency = nodes_.at(morph).count;
 
 	// Remove the current representation of the node, if we have it
 	if (nodes_.find(morph) != end(nodes_))
@@ -95,38 +111,71 @@ void SegmentationTree::ResplitNode(const std::string& morph)
 	}
 
 	// First, try the node as a morph of its own
-	//if (!model.contains(node))
-	//{
-	//	model.insert(node);
-	//}
-	// increase L(corpus|M) and L(frequencies) accordingly
-	// add contribution of node to L(lengths)
-	// bestSolution = [L(M | corpus), node]
+	emplace(morph, frequency);
+	pr_corpus_given_model_ += 0;  // TODO: actual lobprob
+	pr_frequencies_ += 0;  // TODO: actual logprob
+	pr_lengths_ += 0;  // TODO: actual logprob
+
+	// Save a copy of this as our current best solution
+	auto best_solution_probability = pr_model_given_corpus_;
+	size_t best_solution_split_index = 0;
 
 	// Then try every split of the node into two substrings
-	/*
-	subtract contribution of node from L(M | corpus), but leave node in data structure
+	pr_model_given_corpus_ -= 0;  // TODO: actual logprob
+	auto current_pr_model_given_corpus = pr_model_given_corpus_;
+	auto data_structure_backup = nodes_;
+	for (auto split_index = 1; split_index < morph.size(); ++split_index)
+	{
+	  std::array<std::string, 2> subnode_keys = {
+	      morph.substr(0, split_index), morph.substr(split_index)
+	  };
+	  for (auto& key : subnode_keys)
+	  {
+	    if (contains(key))
+	    {
+	      MorphNode& subnode = nodes_.at(key);
+	      subnode.count += frequency;
+	      if (!subnode.has_children())
+	      {
+	        pr_corpus_given_model_ += 0;  // TODO: actual logprob
+	        pr_frequencies_ += 0;  // TODO: actual logprob
+	      }
+	    }
+	    else
+	    {
+	      emplace(morph, frequency);
+	      pr_corpus_given_model_ += 0;  // TODO: actual logprob
+	      pr_frequencies_ += 0;  // TODO: actual logprob
+	      pr_lengths_ += 0;  // TODO: actual logprob
+	    }
+	  }
+	  // TODO: check if we should use < or >
+	  if (pr_model_given_corpus_ < best_solution_probability)
+	  {
+	    best_solution_probability = pr_model_given_corpus_;
+	    best_solution_split_index = split_index;
+	  }
 
-	store current L(M | corpus) and data structure
-	for all substrings pre and suf such that pre ◦ suf = node do
-	for subnode in [pre, suf] do
-	if subnode is present in the data structure then
-	for all nodes m in the subtree rooted at subnode do
-	increase count(m) by count(node)
-	increase L(corpus | M) and L(f μ 1 , . . . , f μ M ) if m is a leaf node
-	else
-	add subnode with count(node) into the data structure
-	increase L(corpus | M) and L(f μ 1 , . . . , f μ M ) accordingly
-	add contribution of subnode to L(s μ 1 , . . . , s μ M )
-	if L(M | corpus) < code length stored in bestSolution then
-	bestSolution ← [L(M | corpus), pre, suf]
-	restore stored data structure and L(M | corpus)
-
+	  // Restore old data structure and probability
+	  nodes_ = data_structure_backup;
+	  pr_model_given_corpus_ = current_pr_model_given_corpus;
+	}
 
 	// Select the best split or no split
+	pr_model_given_corpus_ = best_solution_probability;
+	if (best_solution_split_index > 0)
+	{
+	  auto left_key = morph.substr(0, best_solution_split_index);
+	  auto right_key = morph.substr(best_solution_split_index);
+	  nodes_[left_key].count += frequency;
+	  nodes_[right_key].count += frequency;
+	  nodes_.at(morph).left_child = left_key;
+	  nodes_.at(morph).right_child = right_key;
 
-		// Proceed by splitting recursively
-*/
+	  // Proceed by splitting recursively
+	  ResplitNode(left_key);
+	  ResplitNode(right_key);
+	}
 }
 
 } // namespace morfessor

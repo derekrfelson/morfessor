@@ -49,7 +49,7 @@ TEST(SegmentationTree_Split, OneNode)
   SegmentationTree segmentations{};
   segmentations.emplace("reopen", 1);
 
-  segmentations.split("reopen", 2);
+  segmentations.Split("reopen", 2);
 
   EXPECT_TRUE(segmentations.contains("re"));
   EXPECT_TRUE(segmentations.contains("open"));
@@ -65,8 +65,8 @@ TEST(SegmentationTree_Split, CountPreservedWithNoSharedElements)
   segmentations.emplace("reopen", 7);
   segmentations.emplace("counter", 10);
 
-  segmentations.split("reopen", 2);
-  segmentations.split("counter", 5);
+  segmentations.Split("reopen", 2);
+  segmentations.Split("counter", 5);
 
   EXPECT_EQ(7, segmentations.at("re").count);
   EXPECT_EQ(7, segmentations.at("reopen").count);
@@ -82,8 +82,8 @@ TEST(SegmentationTree_Split, CountCombinedWithSharedElements)
   segmentations.emplace("reopen", 7);
   segmentations.emplace("retry", 10);
 
-  segmentations.split("reopen", 2);
-  segmentations.split("retry", 2);
+  segmentations.Split("reopen", 2);
+  segmentations.Split("retry", 2);
 
   EXPECT_EQ(7, segmentations.at("reopen").count);
   EXPECT_EQ(7, segmentations.at("open").count);
@@ -99,10 +99,10 @@ TEST(SegmentationTree_Split, CountCombinedWithDeepSharedElements)
   segmentations.emplace("retry", 2);
   segmentations.emplace("trying", 4);
 
-  segmentations.split("reopening", 2);
-  segmentations.split("opening", 4);
-  segmentations.split("retry", 2);
-  segmentations.split("trying", 3);
+  segmentations.Split("reopening", 2);
+  segmentations.Split("opening", 4);
+  segmentations.Split("retry", 2);
+  segmentations.Split("trying", 3);
 
   EXPECT_EQ(3, segmentations.at("re").count);
   EXPECT_EQ(5, segmentations.at("ing").count);
@@ -116,8 +116,8 @@ TEST(SegmentationTree_Remove, CountDecreasedSimpleCase)
   segmentations.emplace("reopen", 1);
   segmentations.emplace("retry", 2);
 
-  segmentations.split("reopen", 2);
-  segmentations.split("retry", 2);
+  segmentations.Split("reopen", 2);
+  segmentations.Split("retry", 2);
 
   EXPECT_EQ(3, segmentations.at("re").count);
 
@@ -135,10 +135,10 @@ TEST(SegmentationTree_Remove, CountDecreasedHarderCase)
   segmentations.emplace("retry", 2);
   segmentations.emplace("trying", 4);
 
-  segmentations.split("reopening", 2);
-  segmentations.split("opening", 4);
-  segmentations.split("retry", 2);
-  segmentations.split("trying", 3);
+  segmentations.Split("reopening", 2);
+  segmentations.Split("opening", 4);
+  segmentations.Split("retry", 2);
+  segmentations.Split("trying", 3);
 
   segmentations.Remove("trying");
 
@@ -153,10 +153,10 @@ TEST(SegmentationTree_Remove, EmptyDescendantsRemoved)
   segmentations.emplace("retry", 2);
   segmentations.emplace("trying", 4);
 
-  segmentations.split("reopening", 2);
-  segmentations.split("opening", 4);
-  segmentations.split("retry", 2);
-  segmentations.split("trying", 3);
+  segmentations.Split("reopening", 2);
+  segmentations.Split("opening", 4);
+  segmentations.Split("retry", 2);
+  segmentations.Split("trying", 3);
 
   segmentations.Remove("trying");
   segmentations.Remove("retry");
@@ -191,9 +191,9 @@ TEST(SegmentationTree_Remove, CountDecreased)
 {
   SegmentationTree segmentations{};
   segmentations.emplace("reopen", 7);
-  segmentations.split("reopen", 2);
+  segmentations.Split("reopen", 2);
   segmentations.emplace("reorder", 10);
-  segmentations.split("reorder", 2);
+  segmentations.Split("reorder", 2);
 
   EXPECT_TRUE(segmentations.contains("reopen"));
   EXPECT_TRUE(segmentations.contains("reorder"));
@@ -202,4 +202,37 @@ TEST(SegmentationTree_Remove, CountDecreased)
   EXPECT_FALSE(segmentations.contains("reorder"));
   segmentations.Remove("reopen");
   EXPECT_FALSE(segmentations.contains("reopen"));
+}
+
+TEST(SegmentationTree_Optimize, NoWords)
+{
+  SegmentationTree segmentations{};
+  EXPECT_EQ(0, segmentations.size());
+  segmentations.Optimize();
+  EXPECT_EQ(0, segmentations.size());
+}
+
+TEST(SegmentationTree_Optimize, OneWord)
+{
+  SegmentationTree segmentations{};
+  segmentations.emplace("reopen", 7);
+  EXPECT_EQ(1, segmentations.size());
+  segmentations.Optimize();
+  EXPECT_EQ(7, segmentations.at("reopen").count);
+  EXPECT_EQ(1, segmentations.size());
+}
+
+TEST(SegmentationTree_Optimize, TwoWords)
+{
+  SegmentationTree segmentations{};
+  segmentations.emplace("reopen", 1);
+  segmentations.emplace("redo", 2);
+  ASSERT_EQ(2, segmentations.size());
+
+  segmentations.Optimize();
+  EXPECT_EQ(3, segmentations.size());
+  EXPECT_EQ(1, segmentations.at("reopen").count);
+  EXPECT_EQ(2, segmentations.at("redo").count);
+  ASSERT_TRUE(segmentations.contains("re"));
+  EXPECT_EQ(3, segmentations.at("re").count);
 }

@@ -48,10 +48,10 @@ public:
 class SegmentationTree
 {
  public:
-  explicit SegmentationTree() noexcept;
+  explicit SegmentationTree();
   template <typename InputIterator>
   explicit SegmentationTree(InputIterator first, InputIterator last);
-  void split(const std::string& morph, size_t split_index);
+  void Split(const std::string& morph, size_t split_index);
   bool contains(const std::string& morph) const {
     return nodes_.find(morph) != nodes_.end();
   }
@@ -64,7 +64,9 @@ class SegmentationTree
   const MorphNode& at(const std::string& morph) const {
     return nodes_.at(morph);
   }
+  size_t size() const noexcept { return nodes_.size(); }
   void Remove(const std::string morph);
+  void Optimize();
  private:
   std::unordered_map<std::string, MorphNode> nodes_;
   Probability pr_model_given_corpus_ = 0;
@@ -76,10 +78,15 @@ class SegmentationTree
       const std::string& subtree_key);
 };
 
-void resplitnode(MorphNode* node, Model* model, const Corpus& corpus);
-
 inline bool operator==(const MorphNode& lhs, const MorphNode& rhs) noexcept {
     return lhs.count == rhs.count;
+}
+
+inline void SegmentationTree::Remove(const std::string morph)
+{
+  auto node = nodes_.find(morph);
+  assert(node != end(nodes_));
+  RemoveNode(node->second, node->first);
 }
 
 template <typename InputIterator>
@@ -90,13 +97,6 @@ SegmentationTree::SegmentationTree(InputIterator first, InputIterator last)
     nodes_.emplace(first->letters(), first->frequency());
     ++first;
   }
-}
-
-inline void SegmentationTree::Remove(const std::string morph)
-{
-  auto node = nodes_.find(morph);
-  assert(node != end(nodes_));
-  RemoveNode(node->second, node->first);
 }
 
 } // namespace morfessor
