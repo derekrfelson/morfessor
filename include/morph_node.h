@@ -32,12 +32,10 @@
 #include "morph.h"
 #include "types.h"
 
-namespace morfessor
-{
+namespace morfessor {
 
 /// Represents a possible split or a word or morph into two smaller morphs.
-struct MorphNode
-{
+struct MorphNode {
  public:
   /// C'tor for an empty node with no children.
   MorphNode();
@@ -70,8 +68,7 @@ struct MorphNode
 ///     SegmentationTree segmentations{};
 ///     segmentations.emplace("reopen", 1);
 ///     segmentations.split("reopen", 2);
-class SegmentationTree
-{
+class SegmentationTree {
  public:
   /// C'tor that creates an empty segmentation tree. You probably want to use
   /// emplace to add morphs to it after.
@@ -120,6 +117,19 @@ class SegmentationTree
 
   /// Calculates the probability of the corpus given the model.
   Probability ProbabilityOfCorpusGivenModel() const;
+
+  /// Calculates the contribution of the frequencies of the morphs
+  /// to the probability of the lexicon given the model. Uses the explicit
+  /// version of the frequency calculation, which takes the individual morph
+  /// frequencies into account, as well as the prior for the proportion of
+  /// hapax legomena in the corpus.
+  /// @see set_hapax_legomena_prior
+  Probability ProbabilityFromExplicitFrequencies() const;
+
+  /// Sets the prior belief for the proportion of morphs that only occur once
+  /// in the corpus.
+  /// @value The expected proportion. Must be in range (0,1)
+  void set_hapax_legomena_prior(double value);
 
   /// Calculates the contribution of the frequencies of the morphs
   /// to the probability of the lexicon given the model. Uses the implicit
@@ -177,6 +187,11 @@ class SegmentationTree
   // Number of unique morphs in the data structure. Unlike total_morph_tokens_,
   // this number ignores the frequency, only counting each unique morph once.
   size_t unique_morph_types_ = 0;
+
+  /// The prior belief for the proportion of morphs that only occur once
+  /// in the corpus. Typically this value is between 0.4 and 0.6 for English.
+  /// It must be in the range (0,1).
+  double hapax_legomena_prior_ = 0.5;
 };
 
 inline bool MorphNode::has_children() const noexcept {
@@ -234,6 +249,11 @@ inline const MorphNode& SegmentationTree::at(const std::string& morph) const {
 
 inline size_t SegmentationTree::size() const noexcept {
   return nodes_.size();
+}
+
+inline void SegmentationTree::set_hapax_legomena_prior(double value) {
+  assert(value > 0 && value < 1);
+  hapax_legomena_prior_ = value;
 }
 
 } // namespace morfessor

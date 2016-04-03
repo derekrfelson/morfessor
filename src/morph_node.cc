@@ -32,12 +32,9 @@ namespace morfessor
 {
 
 SegmentationTree::SegmentationTree()
-    : nodes_{}
-{
-}
+    : nodes_{} {}
 
-void SegmentationTree::Split(const std::string& morph, size_t left_length)
-{
+void SegmentationTree::Split(const std::string& morph, size_t left_length) {
   assert(morph.size() > 1);
   assert(left_length > 0 && left_length < morph.size() - 1);
   auto found_node = nodes_.find(morph);
@@ -62,31 +59,37 @@ void SegmentationTree::Split(const std::string& morph, size_t left_length)
       + static_cast<int>(nodes_[node->right_child].count == node->count);
 }
 
-Probability SegmentationTree::ProbabilityOfCorpusGivenModel() const
-{
+Probability SegmentationTree::ProbabilityOfCorpusGivenModel() const {
   Probability sum = 0;
-  for (const auto& iter : nodes_)
-  {
-    if (!iter.second.has_children())
-    {
+  for (const auto& iter : nodes_) {
+    if (!iter.second.has_children()) {
       sum += ProbabilityOfMorph(iter.first);
     }
   }
   return sum;
 }
 
+Probability SegmentationTree::ProbabilityFromExplicitFrequencies() const {
+  auto exponent = std::log2(1 - hapax_legomena_prior_);
+  Probability sum = 0;
+  for (const auto& iter : nodes_) {
+    if (!iter.second.has_children()) {
+      sum += std::log(std::pow(iter.second.count, exponent)
+                      - std::pow(iter.second.count + 1, exponent));
+    }
+  }
+  return sum;
+}
+
 void SegmentationTree::RemoveNode(const MorphNode& node_to_remove,
-    const std::string& subtree_key)
-{
+    const std::string& subtree_key) {
   MorphNode& subtree = nodes_.at(subtree_key);
 
   // Recursively remove the nodes childrens, if they exist
-  if (!subtree.left_child.empty())
-  {
+  if (!subtree.left_child.empty()) {
     RemoveNode(node_to_remove, subtree.left_child);
   }
-  if (!subtree.right_child.empty())
-  {
+  if (!subtree.right_child.empty()) {
     RemoveNode(node_to_remove, subtree.right_child);
   }
 
@@ -95,17 +98,14 @@ void SegmentationTree::RemoveNode(const MorphNode& node_to_remove,
   subtree.count -= count_reduction;
 
   // Decrease probabilities if subtree is leaf node
-  if (!subtree.has_children())
-  {
+  if (!subtree.has_children()) {
     total_morph_tokens_ -= count_reduction;
     pr_corpus_given_model_ -= 0;  // TODO: actual logprob
     pr_frequencies_ -= 0;  // TODO: actual logprob
   }
   // If nothing points to the subtree anymore, delete it
-  if (subtree.count == 0)
-  {
-    if (!subtree.has_children())
-    {
+  if (subtree.count == 0) {
+    if (!subtree.has_children()) {
       unique_morph_types_ -= 1;
       pr_lengths_ -= 0;  // TODO: actual logprob
     }
@@ -113,27 +113,22 @@ void SegmentationTree::RemoveNode(const MorphNode& node_to_remove,
   }
 }
 
-void SegmentationTree::Optimize()
-{
+void SegmentationTree::Optimize() {
   std::vector<std::string> keys;
-  for (const auto& node_pair : nodes_)
-  {
+  for (const auto& node_pair : nodes_) {
     keys.push_back(node_pair.first);
   }
 
-  for (const auto& key : keys)
-  {
+  for (const auto& key : keys) {
     ResplitNode(key);
   }
 }
 
-void SegmentationTree::ResplitNode(const std::string& morph)
-{
+void SegmentationTree::ResplitNode(const std::string& morph) {
   auto frequency = nodes_.at(morph).count;
 
 	// Remove the current representation of the node, if we have it
-	if (nodes_.find(morph) != end(nodes_))
-	{
+	if (nodes_.find(morph) != end(nodes_)) {
 	  RemoveNode(nodes_.at(morph), morph);
 	}
 
@@ -151,25 +146,19 @@ void SegmentationTree::ResplitNode(const std::string& morph)
 	pr_model_given_corpus_ -= 0;  // TODO: actual logprob
 	auto current_pr_model_given_corpus = pr_model_given_corpus_;
 	auto data_structure_backup = nodes_;
-	for (auto split_index = 1; split_index < morph.size(); ++split_index)
-	{
+	for (auto split_index = 1; split_index < morph.size(); ++split_index) {
 	  std::array<std::string, 2> subnode_keys = {
 	      morph.substr(0, split_index), morph.substr(split_index)
 	  };
-	  for (auto& key : subnode_keys)
-	  {
-	    if (contains(key))
-	    {
+	  for (auto& key : subnode_keys) {
+	    if (contains(key)) {
 	      MorphNode& subnode = nodes_.at(key);
 	      subnode.count += frequency;
-	      if (!subnode.has_children())
-	      {
+	      if (!subnode.has_children()) {
 	        pr_corpus_given_model_ += 0;  // TODO: actual logprob
 	        pr_frequencies_ += 0;  // TODO: actual logprob
 	      }
-	    }
-	    else
-	    {
+	    } else {
 	      emplace(morph, frequency);
 	      pr_corpus_given_model_ += 0;  // TODO: actual logprob
 	      pr_frequencies_ += 0;  // TODO: actual logprob
@@ -177,8 +166,7 @@ void SegmentationTree::ResplitNode(const std::string& morph)
 	    }
 	  }
 	  // TODO: check if we should use < or >
-	  if (pr_model_given_corpus_ < best_solution_probability)
-	  {
+	  if (pr_model_given_corpus_ < best_solution_probability) {
 	    best_solution_probability = pr_model_given_corpus_;
 	    best_solution_split_index = split_index;
 	  }
@@ -190,8 +178,7 @@ void SegmentationTree::ResplitNode(const std::string& morph)
 
 	// Select the best split or no split
 	pr_model_given_corpus_ = best_solution_probability;
-	if (best_solution_split_index > 0)
-	{
+	if (best_solution_split_index > 0) {
 	  auto left_key = morph.substr(0, best_solution_split_index);
 	  auto right_key = morph.substr(best_solution_split_index);
 	  nodes_[left_key].count += frequency;
@@ -206,13 +193,9 @@ void SegmentationTree::ResplitNode(const std::string& morph)
 }
 
 MorphNode::MorphNode()
-    : MorphNode(0)
-{
-}
+    : MorphNode(0) {}
 
 MorphNode::MorphNode(size_t count)
-    : count{count}, left_child{}, right_child{}
-{
-}
+    : count{count}, left_child{}, right_child{} {}
 
 } // namespace morfessor

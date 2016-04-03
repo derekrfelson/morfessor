@@ -404,6 +404,7 @@ class SegmentationTreeProbabililtyTests : public ::testing::Test {
     st.emplace("reopen", 1);
     st.emplace("redoing", 2);
     st.emplace("trying", 4);
+    set_hapax_legomena_prior(0.5);
   }
 
   virtual void TearDown() {
@@ -416,6 +417,25 @@ class SegmentationTreeProbabililtyTests : public ::testing::Test {
     st.Split("trying", 3);
   }
 
+  void set_hapax_legomena_prior(double value)
+  {
+    st.set_hapax_legomena_prior(value);
+    hapax_legomena_exponent_ = std::log2(1 - value);
+  }
+
+  double explicit_frequency_probabilities(
+      std::initializer_list<size_t> frequencies) const
+  {
+    double sum = 0;
+    for (auto frequency : frequencies)
+    {
+      sum += std::log(std::pow(frequency, hapax_legomena_exponent_)
+             - std::pow(frequency + 1, hapax_legomena_exponent_));
+    }
+    return sum;
+  }
+
+  double hapax_legomena_exponent_ = -1;
   SegmentationTree st;
 };
 
@@ -454,4 +474,37 @@ TEST_F(SegmentationTreeProbabililtyTests,
   // Morph tokens : unique morphs ratio = 10:4
   ASSERT_EQ(-std::log(binomial(9, 3)),
       st.ProbabilityFromImplicitFrequencies());
+}
+
+TEST_F(SegmentationTreeProbabililtyTests,
+    ProbabilityFromExplicitFrequencies_WithUnsplitCorpus)
+{
+  EXPECT_EQ(explicit_frequency_probabilities({1,2,4}),
+      st.ProbabilityFromExplicitFrequencies());
+}
+
+TEST_F(SegmentationTreeProbabililtyTests,
+    ProbabilityFromExplicitFrequencies_WithSplitCorpus)
+{
+  split();
+  EXPECT_EQ(explicit_frequency_probabilities({3,1,2,4,6}),
+      st.ProbabilityFromExplicitFrequencies());
+}
+
+TEST_F(SegmentationTreeProbabililtyTests,
+    ProbabilityFromExplicitFrequencies_AfterShallowRemoval)
+{
+  split();
+  st.Remove("reopen");
+  EXPECT_EQ(explicit_frequency_probabilities({2,2,4,6}),
+      st.ProbabilityFromExplicitFrequencies());
+}
+
+TEST_F(SegmentationTreeProbabililtyTests,
+    ProbabilityFromExplicitFrequencies_AfterDeepRemoval)
+{
+  split();
+  st.Remove("redoing");
+  EXPECT_EQ(explicit_frequency_probabilities({1,1,4,4}),
+        st.ProbabilityFromExplicitFrequencies());
 }
