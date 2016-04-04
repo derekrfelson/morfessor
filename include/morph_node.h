@@ -118,11 +118,12 @@ class SegmentationTree {
   /// Calculates the probability of the corpus given the model.
   Probability ProbabilityOfCorpusGivenModel() const;
 
-  /// Calculates the contribution of the frequencies of the morphs
+  /// Calculates the contribution of the frequencies in the corpus
   /// to the probability of the lexicon given the model. Uses the explicit
   /// version of the frequency calculation, which takes the individual morph
   /// frequencies into account, as well as the prior for the proportion of
-  /// hapax legomena in the corpus.
+  /// hapax legomena in the corpus. The result is a power law curve obtained
+  /// from a derivation of the Zipf-Mandlebrot law.
   /// @see set_hapax_legomena_prior
   Probability ProbabilityFromExplicitFrequencies() const;
 
@@ -131,11 +132,25 @@ class SegmentationTree {
   /// @value The expected proportion. Must be in range (0,1)
   void set_hapax_legomena_prior(double value);
 
-  /// Calculates the contribution of the frequencies of the morphs
+  /// Calculates the contribution of the frequencies in the corpus
   /// to the probability of the lexicon given the model. Uses the implicit
   /// version of the frequency calculation, which involves an uninformative
   /// prior that does not take individual morph frequencies into account.
+  /// The result is an exponential distribution, where higher frequencies
+  /// are exponentially less likely.
   Probability ProbabilityFromImplicitFrequencies() const;
+
+  /// Calculates the contribution of the lengths of the morphs in the corpus
+  /// to the probability of the lexicon given the model. Uses several
+  /// simplifying assumptions, such as all the morphs are independent and all
+  /// the letters in a morph are independent as well. The result is an
+  /// exponential distribution, i.e., the likelihood of a morph of a given
+  /// length decreases exponentially with its length.
+  Probability ProbabilityFromImplicitLengths() const;
+
+  /// Calculates the probabilities of each letter in the corpus, and the
+  /// end-of-morph marker.
+  std::unordered_map<char, Probability> LetterProbabilities() const;
 
   /// Returns true if the given morph is in the data structure.
   /// @param morph The word or morph to look for.
@@ -155,8 +170,15 @@ class SegmentationTree {
   /// @throw out_of_range exception if the morph was not found.
   const MorphNode& at(const std::string& morph) const;
 
-  /// Returns the number of unique morphs in the data structure.
+  /// Returns the number of nodes in the data structure. This does not form
+  /// part of the probabalistic model.
   size_t size() const noexcept;
+
+  /// Returns the number of morph tokens (unique morphs * their frequencies).
+  size_t total_morph_tokens() const noexcept;
+
+  /// Returns the number of unique morphs in the data structure.
+  size_t unique_morph_types() const noexcept;
 
  private:
   /// Recursively removes a node rooted at a subtree. This is needed
@@ -192,6 +214,10 @@ class SegmentationTree {
   /// in the corpus. Typically this value is between 0.4 and 0.6 for English.
   /// It must be in the range (0,1).
   double hapax_legomena_prior_ = 0.5;
+
+  /// Contains the probabilities of each letter in the corpus.
+  /// The "end of morph" marker is '#'.
+  std::unordered_map<char, Probability> letter_probabilities_;
 };
 
 inline bool MorphNode::has_children() const noexcept {
@@ -223,8 +249,30 @@ inline Probability SegmentationTree::ProbabilityOfMorph(
 
 inline Probability
 SegmentationTree::ProbabilityFromImplicitFrequencies() const {
-  return -std::log(boost::math::binomial_coefficient<Probability>(
-      total_morph_tokens_ - 1, unique_morph_types_ - 1));
+
+  // Formula without approximation
+  if (total_morph_tokens_ < 100) {
+    return std::log2(boost::math::binomial_coefficient<Probability>(
+        total_morph_tokens_ - 1, unique_morph_types_ - 1));
+  } else {
+    // Formula with logarithmic approximation to binomial coefficients
+    // based on Stirling's approximation
+    //
+    // return (total_morph_tokens_ - 1) * std::log2(total_morph_tokens_ - 2)
+    // - (unique_morph_types - 1) * std::log2(unique_morph_types_ - 2)
+    // - (total_morph_tokens_ - unique_morph_types_)
+    //  * std::log2(total_morph_tokens_ - unique_morph_types_ - 1);
+    //
+    // The above should be the correct forumula to use here for a fast
+    // approximation, but the Morfessor reference implementation uses
+    // a slightly different version, which is used below.
+    //
+    // Formula from reference implementation
+    return (total_morph_tokens_ - 1) * std::log2(total_morph_tokens_ - 2)
+          - (unique_morph_types_ - 1) * std::log2(unique_morph_types_ - 2)
+          - (total_morph_tokens_ - unique_morph_types_)
+            * std::log2(total_morph_tokens_ - unique_morph_types_ - 1);
+  }
 }
 
 inline bool SegmentationTree::contains(const std::string& morph) const {
@@ -254,6 +302,15 @@ inline size_t SegmentationTree::size() const noexcept {
 inline void SegmentationTree::set_hapax_legomena_prior(double value) {
   assert(value > 0 && value < 1);
   hapax_legomena_prior_ = value;
+}
+
+
+inline size_t SegmentationTree::total_morph_tokens() const noexcept {
+  return total_morph_tokens_;
+}
+
+inline size_t SegmentationTree::unique_morph_types() const noexcept {
+  return unique_morph_types_;
 }
 
 } // namespace morfessor

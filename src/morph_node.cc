@@ -74,11 +74,79 @@ Probability SegmentationTree::ProbabilityFromExplicitFrequencies() const {
   Probability sum = 0;
   for (const auto& iter : nodes_) {
     if (!iter.second.has_children()) {
-      sum += std::log(std::pow(iter.second.count, exponent)
+      sum -= std::log2(std::pow(iter.second.count, exponent)
                       - std::pow(iter.second.count + 1, exponent));
     }
   }
   return sum;
+}
+
+std::unordered_map<char, Probability>
+SegmentationTree::LetterProbabilities() const
+{
+  // Calculate the probabilities of each letter in the corpus
+  std::unordered_map<char, Probability> letter_probabilities;
+  size_t total_letters = 0;
+  size_t unique_morphs = 0;
+  size_t total_morph_tokens = 0;
+  Probability end_of_morph_string_probability = 0;
+
+  // Get the frequency of all the letters first
+  for (const auto& iter : nodes_) {
+    if (!iter.second.has_children()) {
+      auto& morph_string = iter.first;
+      auto& node = iter.second;
+      ++unique_morphs;
+      total_morph_tokens += node.count;
+      for (auto c : morph_string)
+      {
+        total_letters += node.count;
+        // letter_probabiltieis actually contains count at this point
+        letter_probabilities[c] += node.count;
+      }
+    }
+  }
+
+  // Sanity check
+  assert(unique_morphs == unique_morph_types_);
+  assert(total_morph_tokens == total_morph_tokens_);
+
+  // We count the "end of morph" character as a letter
+  total_letters += total_morph_tokens;
+
+  // Calculate the actual letter probabilities using maximum likelihood
+  auto log_total_letters = std::log2(total_letters);
+  for (auto iter : letter_probabilities)
+  {
+    letter_probabilities[iter.first] =
+        log_total_letters - std::log2(letter_probabilities[iter.first]);
+  }
+
+  // The "end of morph string" character can be understood to appear
+  // at the end of every string, i.e. total_morph_tokens number of times.
+  letter_probabilities['#'] =
+      log_total_letters - std::log2(total_morph_tokens);
+
+  return letter_probabilities;
+}
+
+Probability SegmentationTree::ProbabilityFromImplicitLengths() const {
+  auto letter_probabilities = LetterProbabilities();
+
+  // Use the letter probabilities to sum the probability of the morph strings
+  Probability sum = 0;
+  for (const auto& iter : nodes_) {
+    if (!iter.second.has_children()) {
+      auto& morph_string = iter.first;
+      auto& node = iter.second;
+      for (auto c : morph_string)
+      {
+        sum += letter_probabilities[c] * node.count;
+      }
+    }
+  }
+
+  return 0;
 }
 
 void SegmentationTree::RemoveNode(const MorphNode& node_to_remove,

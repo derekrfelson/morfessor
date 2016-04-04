@@ -29,10 +29,13 @@
 #include <boost/math/special_functions/binomial.hpp>
 
 #include "morph.h"
+#include "corpus.h"
 
 using Morph = morfessor::Morph;
+using Corpus = morfessor::Corpus;
 using SegmentationTree = morfessor::SegmentationTree;
 auto binomial = &boost::math::binomial_coefficient<double>;
+constexpr double threshold = 0.00001;
 
 TEST(SegmentationTree_IteratorConstructor, Empty)
 {
@@ -429,7 +432,7 @@ class SegmentationTreeProbabililtyTests : public ::testing::Test {
     double sum = 0;
     for (auto frequency : frequencies)
     {
-      sum += std::log(std::pow(frequency, hapax_legomena_exponent_)
+      sum -= std::log2(std::pow(frequency, hapax_legomena_exponent_)
              - std::pow(frequency + 1, hapax_legomena_exponent_));
     }
     return sum;
@@ -439,12 +442,14 @@ class SegmentationTreeProbabililtyTests : public ::testing::Test {
   SegmentationTree st;
 };
 
+// Test implicit frequencies
+
 TEST_F(SegmentationTreeProbabililtyTests,
     ProbabilityFromImplicitFrequencies_WithUnsplitCorpus)
 {
   // Morph tokens : unique morphs ratio = 7:3
-  ASSERT_EQ(-std::log(binomial(6, 2)),
-      st.ProbabilityFromImplicitFrequencies());
+  ASSERT_NEAR(std::log2(binomial(6, 2)),
+      st.ProbabilityFromImplicitFrequencies(), threshold);
 }
 
 TEST_F(SegmentationTreeProbabililtyTests,
@@ -452,8 +457,8 @@ TEST_F(SegmentationTreeProbabililtyTests,
 {
   split();
   // Morph tokens : unique morphs ratio = 16:5
-  ASSERT_EQ(-std::log(binomial(15, 4)),
-      st.ProbabilityFromImplicitFrequencies());
+  ASSERT_NEAR(std::log2(binomial(15, 4)),
+      st.ProbabilityFromImplicitFrequencies(), threshold);
 }
 
 TEST_F(SegmentationTreeProbabililtyTests,
@@ -462,8 +467,8 @@ TEST_F(SegmentationTreeProbabililtyTests,
   split();
   st.Remove("reopen");
   // Morph tokens : unique morphs ratio = 14:4
-  ASSERT_EQ(-std::log(binomial(13, 3)),
-      st.ProbabilityFromImplicitFrequencies());
+  ASSERT_NEAR(std::log2(binomial(13, 3)),
+      st.ProbabilityFromImplicitFrequencies(), threshold);
 }
 
 TEST_F(SegmentationTreeProbabililtyTests,
@@ -472,23 +477,25 @@ TEST_F(SegmentationTreeProbabililtyTests,
   split();
   st.Remove("redoing");
   // Morph tokens : unique morphs ratio = 10:4
-  ASSERT_EQ(-std::log(binomial(9, 3)),
-      st.ProbabilityFromImplicitFrequencies());
+  ASSERT_NEAR(std::log2(binomial(9, 3)),
+      st.ProbabilityFromImplicitFrequencies(), threshold);
 }
+
+// Test explicit frequencies
 
 TEST_F(SegmentationTreeProbabililtyTests,
     ProbabilityFromExplicitFrequencies_WithUnsplitCorpus)
 {
-  EXPECT_EQ(explicit_frequency_probabilities({1,2,4}),
-      st.ProbabilityFromExplicitFrequencies());
+  EXPECT_NEAR(explicit_frequency_probabilities({1,2,4}),
+      st.ProbabilityFromExplicitFrequencies(), threshold);
 }
 
 TEST_F(SegmentationTreeProbabililtyTests,
     ProbabilityFromExplicitFrequencies_WithSplitCorpus)
 {
   split();
-  EXPECT_EQ(explicit_frequency_probabilities({3,1,2,4,6}),
-      st.ProbabilityFromExplicitFrequencies());
+  EXPECT_NEAR(explicit_frequency_probabilities({3,1,2,4,6}),
+      st.ProbabilityFromExplicitFrequencies(), threshold);
 }
 
 TEST_F(SegmentationTreeProbabililtyTests,
@@ -496,8 +503,8 @@ TEST_F(SegmentationTreeProbabililtyTests,
 {
   split();
   st.Remove("reopen");
-  EXPECT_EQ(explicit_frequency_probabilities({2,2,4,6}),
-      st.ProbabilityFromExplicitFrequencies());
+  EXPECT_NEAR(explicit_frequency_probabilities({2,2,4,6}),
+      st.ProbabilityFromExplicitFrequencies(), threshold);
 }
 
 TEST_F(SegmentationTreeProbabililtyTests,
@@ -505,6 +512,66 @@ TEST_F(SegmentationTreeProbabililtyTests,
 {
   split();
   st.Remove("redoing");
-  EXPECT_EQ(explicit_frequency_probabilities({1,1,4,4}),
-        st.ProbabilityFromExplicitFrequencies());
+  EXPECT_NEAR(explicit_frequency_probabilities({1,1,4,4}),
+        st.ProbabilityFromExplicitFrequencies(), threshold);
 }
+
+// Test letter probabilities
+
+TEST_F(SegmentationTreeProbabililtyTests,
+    LetterProbabilities)
+{
+  auto lp = st.LetterProbabilities();
+  // Calculated by Morfessor Baseline reference implementation
+
+  EXPECT_NEAR(2.86507, lp['#'], threshold);
+  EXPECT_NEAR(4.67243, lp['d'], threshold);
+  EXPECT_NEAR(3.67243, lp['e'], threshold);
+  EXPECT_NEAR(3.08746, lp['g'], threshold);
+  EXPECT_NEAR(3.08746, lp['i'], threshold);
+  EXPECT_NEAR(2.86507, lp['n'], threshold);
+  EXPECT_NEAR(4.08746, lp['o'], threshold);
+  EXPECT_NEAR(5.67243, lp['p'], threshold);
+  EXPECT_NEAR(2.86507, lp['r'], threshold);
+  EXPECT_NEAR(3.67243, lp['t'], threshold);
+  EXPECT_NEAR(3.67243, lp['y'], threshold);
+}
+
+// Test frequency distribution
+
+TEST_F(SegmentationTreeProbabililtyTests, ImplicitFrequencyReferenceTest)
+{
+  // Calculated by Morfessor Baseline reference implementation
+  EXPECT_EQ(7, st.total_morph_tokens());
+  EXPECT_EQ(3, st.unique_morph_types());
+
+  // Reference implementation for implicit does not work for small data sets
+  //EXPECT_NEAR(7.59172, st.ProbabilityFromImplicitFrequencies(), threshold);
+
+  EXPECT_NEAR(7.90689, st.ProbabilityFromExplicitFrequencies(), threshold);
+
+  SegmentationTree st2;
+  st2.emplace("going", 1);
+  st2.emplace("walking", 2);
+  st2.emplace("deciding", 4);
+  st2.emplace("relief", 8);
+
+  EXPECT_EQ(15, st2.total_morph_tokens());
+  EXPECT_EQ(4, st2.unique_morph_types());
+
+  // Reference implementation for implicit does not work for small data sets
+  //EXPECT_NEAR(12.26495, st2.ProbabilityFromImplicitFrequencies(), threshold);
+
+  EXPECT_NEAR(14.07682, st2.ProbabilityFromExplicitFrequencies(), threshold);
+
+  morfessor::Corpus c{"../testdata/largetest.txt"};
+  SegmentationTree st3{c.begin(), c.end()};
+  st3.set_hapax_legomena_prior(0.5);
+  EXPECT_EQ(64772, st3.total_morph_tokens());
+  EXPECT_EQ(492, st3.unique_morph_types());
+  EXPECT_NEAR(4165.46499, st3.ProbabilityFromImplicitFrequencies(), threshold);
+  EXPECT_NEAR(2341.87284, st3.ProbabilityFromExplicitFrequencies(), threshold);
+}
+
+// Test implicit lengths
+
