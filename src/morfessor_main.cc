@@ -20,23 +20,48 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+#include <unistd.h>
+
 #include <cassert>
+#include <iostream>
+
+#include <gflags/gflags.h>
 
 #include "morph_node.h"
 
 using SegmentationTree = morfessor::SegmentationTree;
 
+DEFINE_bool(use_explicit_freq, false,
+    "enables explicit frequency calculation");
+DEFINE_string(data, "", "word list to segment");
+DEFINE_string(load, "", "pre-segmented word list to use as model");
+DEFINE_double(zipffreqdistr, 0.5, "prior probability for "
+    "proportion of morphs that only appear once");
+
+static bool ValidateProportion(const char* flagname, double value) {
+  return value > 0 && value < 1;
+}
+
+static bool ValidatePath(const char* flagname, const std::string& path) {
+  return path == "" || access(path.c_str(), F_OK) != -1;
+}
+
 int main(int argc, char** argv)
 {
-  SegmentationTree segmentations{};
-  segmentations.emplace("reopen", 1);
-  segmentations.emplace("redo", 2);
-  assert(2 == segmentations.size());
-  segmentations.Optimize();
-  assert(3 == segmentations.size());
-  assert(1 == segmentations.at("reopen").count);
-  assert(2 == segmentations.at("redo").count);
-  assert(3 == segmentations.at("re").count);
+  gflags::RegisterFlagValidator(&FLAGS_zipffreqdistr, &ValidateProportion);
+  gflags::RegisterFlagValidator(&FLAGS_data, &ValidatePath);
+  gflags::RegisterFlagValidator(&FLAGS_load, &ValidatePath);
+  google::ParseCommandLineFlags(&argc, &argv, true);
+
+  if (FLAGS_use_explicit_freq)
+  {
+    std::cout << "use explicit freq" << std::endl;
+  }
+
+  if (FLAGS_zipffreqdistr)
+  {
+    std::cout << "zipffreqdistr: " << FLAGS_zipffreqdistr << std::endl;
+  }
 
   return 0;
 }
