@@ -25,6 +25,9 @@
 #include <cassert>
 #include <array>
 
+#include <boost/math/distributions/gamma.hpp>
+#include <boost/math/special_functions/binomial.hpp>
+
 #include "corpus.h"
 #include "morph.h"
 
@@ -66,6 +69,32 @@ Probability SegmentationTree::ProbabilityOfCorpusGivenModel() const {
     }
   }
   return sum;
+}
+
+Probability SegmentationTree::ProbabilityFromImplicitFrequencies() const {
+  // Formula without approximation
+  if (total_morph_tokens_ < 100) {
+    return std::log2(boost::math::binomial_coefficient<Probability>(
+        total_morph_tokens_ - 1, unique_morph_types_ - 1));
+  } else {
+    // Formula with logarithmic approximation to binomial coefficients
+    // based on Stirling's approximation
+    //
+    // return (total_morph_tokens_ - 1) * std::log2(total_morph_tokens_ - 2)
+    // - (unique_morph_types - 1) * std::log2(unique_morph_types_ - 2)
+    // - (total_morph_tokens_ - unique_morph_types_)
+    //  * std::log2(total_morph_tokens_ - unique_morph_types_ - 1);
+    //
+    // The above should be the correct forumula to use here for a fast
+    // approximation, but the Morfessor reference implementation uses
+    // a slightly different version, which is used below.
+    //
+    // Formula from reference implementation
+    return (total_morph_tokens_ - 1) * std::log2(total_morph_tokens_ - 2)
+          - (unique_morph_types_ - 1) * std::log2(unique_morph_types_ - 2)
+          - (total_morph_tokens_ - unique_morph_types_)
+            * std::log2(total_morph_tokens_ - unique_morph_types_ - 1);
+  }
 }
 
 Probability SegmentationTree::ProbabilityFromExplicitFrequencies() const {
@@ -132,7 +161,6 @@ SegmentationTree::LetterProbabilities() const
 Probability SegmentationTree::ProbabilityFromImplicitLengths() const {
   auto letter_probabilities = LetterProbabilities();
 
-  // Use the letter probabilities to sum the probability of the morph strings
   Probability sum = 0;
   for (const auto& iter : nodes_) {
     if (!iter.second.has_children()) {
@@ -144,6 +172,20 @@ Probability SegmentationTree::ProbabilityFromImplicitLengths() const {
   return sum;
 }
 
+Probability SegmentationTree::ProbabilityFromExplicitLengths(
+    double prior, double beta) const {
+  auto alpha = prior / beta + 1;
+  auto gd = boost::math::gamma_distribution<double>{alpha, beta};
+
+  Probability sum = 0;
+  for (const auto& iter : nodes_) {
+    if (!iter.second.has_children()) {
+      sum -= std::log2(boost::math::pdf(gd, iter.first.length()));
+    }
+  }
+
+  return sum;
+}
 
 Probability SegmentationTree::ProbabilityFromLetters() const {
   auto letter_probabilities = LetterProbabilities();

@@ -28,8 +28,6 @@
 #include <string>
 #include <unordered_map>
 
-#include <boost/math/special_functions/binomial.hpp>
-
 #include "morph.h"
 #include "types.h"
 
@@ -143,12 +141,18 @@ class SegmentationTree {
   /// @return Code length (-log_2 probability)
   Probability ProbabilityFromImplicitFrequencies() const;
 
-  /// Calculates the contribution of the lengths of the morphs in the corpus
-  /// to the probability of the lexicon given the model. Uses several
-  /// simplifying assumptions, such as all the morphs are independent and all
-  /// the letters in a morph are independent as well. The result is an
-  /// exponential distribution, i.e., the likelihood of a morph of a given
-  /// length decreases exponentially with its length.
+  /// Calculates the cost of the morph lengths using a Gamma distribution
+  /// with 2 parameters.
+  /// @param prior The prior for the most common morph length, such that
+  ///   0 < prior < 24*beta
+  /// @param beta The beta value of the Gamma distribution, such that beta > 0.
+  /// @return Code length (-log_2 probability)
+  Probability ProbabilityFromExplicitLengths(double prior = 7.0,
+      double beta = 1.0) const;
+
+  /// Calculates cost of the morph lenghts using an exponential distribution
+  /// with no parameters. The likelihood of a morph of a given length decreases
+  /// exponentially with its length.
   /// @return Code length (-log_2 probability)
   Probability ProbabilityFromImplicitLengths() const;
 
@@ -261,33 +265,6 @@ inline Probability SegmentationTree::ProbabilityOfMorph(
   assert(contains(morph));
   return std::log(static_cast<Probability>(nodes_.at(morph).count)
       / total_morph_tokens_);
-}
-
-inline Probability
-SegmentationTree::ProbabilityFromImplicitFrequencies() const {
-  // Formula without approximation
-  if (total_morph_tokens_ < 100) {
-    return std::log2(boost::math::binomial_coefficient<Probability>(
-        total_morph_tokens_ - 1, unique_morph_types_ - 1));
-  } else {
-    // Formula with logarithmic approximation to binomial coefficients
-    // based on Stirling's approximation
-    //
-    // return (total_morph_tokens_ - 1) * std::log2(total_morph_tokens_ - 2)
-    // - (unique_morph_types - 1) * std::log2(unique_morph_types_ - 2)
-    // - (total_morph_tokens_ - unique_morph_types_)
-    //  * std::log2(total_morph_tokens_ - unique_morph_types_ - 1);
-    //
-    // The above should be the correct forumula to use here for a fast
-    // approximation, but the Morfessor reference implementation uses
-    // a slightly different version, which is used below.
-    //
-    // Formula from reference implementation
-    return (total_morph_tokens_ - 1) * std::log2(total_morph_tokens_ - 2)
-          - (unique_morph_types_ - 1) * std::log2(unique_morph_types_ - 2)
-          - (total_morph_tokens_ - unique_morph_types_)
-            * std::log2(total_morph_tokens_ - unique_morph_types_ - 1);
-  }
 }
 
 inline bool SegmentationTree::contains(const std::string& morph) const {

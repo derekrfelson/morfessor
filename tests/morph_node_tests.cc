@@ -697,6 +697,40 @@ TEST(SegmentationTree, ImplicitMorphLengthCost_ReferenceTestFullEnglishCorpus)
   EXPECT_NEAR(410817.33961, st.ProbabilityFromImplicitLengths(), threshold);
 }
 
+// Test morph length costs (explicit calculation method)
+
+TEST(SegmentationTree, ExplicitMorphLengthCost_ReferenceTest1)
+{
+  morfessor::Corpus c{"../testdata/test1.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(8.46787, st.ProbabilityFromExplicitLengths(), threshold);
+}
+
+TEST(SegmentationTree, ExplicitMorphLengthCost_ReferenceTest2)
+{
+  morfessor::Corpus c{"../testdata/test2.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(11.70718, st.ProbabilityFromExplicitLengths(), threshold);
+}
+
+TEST(SegmentationTree, ExplicitMorphLengthCost_ReferenceTest3)
+{
+  morfessor::Corpus c{"../testdata/test3.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(1623.19011, st.ProbabilityFromExplicitLengths(), threshold);
+}
+
+TEST(SegmentationTree, ExplicitMorphLengthCost_ReferenceTestFullEnglishCorpus)
+{
+  morfessor::Corpus c{"../testdata/test-full-english-corpus.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(564175.94227, st.ProbabilityFromExplicitLengths(), threshold);
+}
+
 // Test probability adjustment based on morph orders in the lexicon
 
 TEST(SegmentationTree, MorphOrderAdjustment_ReferenceTest1)
