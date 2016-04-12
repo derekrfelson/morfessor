@@ -35,7 +35,7 @@ using Morph = morfessor::Morph;
 using Corpus = morfessor::Corpus;
 using SegmentationTree = morfessor::SegmentationTree;
 auto binomial = &boost::math::binomial_coefficient<double>;
-constexpr double threshold = 0.00001;
+constexpr double threshold = 0.0001;
 
 TEST(SegmentationTree_IteratorConstructor, Empty)
 {
@@ -522,8 +522,8 @@ TEST_F(SegmentationTreeProbabililtyTests,
     LetterProbabilities)
 {
   auto lp = st.LetterProbabilities();
-  // Calculated by Morfessor Baseline reference implementation
 
+  // Calculated by Morfessor Baseline reference implementation
   EXPECT_NEAR(2.86507, lp['#'], threshold);
   EXPECT_NEAR(4.67243, lp['d'], threshold);
   EXPECT_NEAR(3.67243, lp['e'], threshold);
@@ -539,7 +539,7 @@ TEST_F(SegmentationTreeProbabililtyTests,
 
 // Test frequency distribution
 
-TEST_F(SegmentationTreeProbabililtyTests, ImplicitFrequencyReferenceTest)
+TEST_F(SegmentationTreeProbabililtyTests, FrequencyReferenceTest)
 {
   // Calculated by Morfessor Baseline reference implementation
   EXPECT_EQ(7, st.total_morph_tokens());
@@ -573,5 +573,165 @@ TEST_F(SegmentationTreeProbabililtyTests, ImplicitFrequencyReferenceTest)
   EXPECT_NEAR(2341.87284, st3.ProbabilityFromExplicitFrequencies(), threshold);
 }
 
-// Test implicit lengths
+// Explicit frequency tests
+
+TEST(SegmentationTree, ExplicitFrequencyCost_ReferenceTest1)
+{
+  morfessor::Corpus c{"../testdata/test1.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(7.90689, st.ProbabilityFromExplicitFrequencies(), threshold);
+}
+
+TEST(SegmentationTree, ExplicitFrequencyCost_ReferenceTest2)
+{
+  morfessor::Corpus c{"../testdata/test2.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(14.07682, st.ProbabilityFromExplicitFrequencies(), threshold);
+}
+
+TEST(SegmentationTree, ExplicitFrequencyCost_ReferenceTest3)
+{
+  morfessor::Corpus c{"../testdata/test3.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(2341.87284, st.ProbabilityFromExplicitFrequencies(), threshold);
+}
+
+TEST(SegmentationTree, ExplicitFrequencyCost_ReferenceTestFullEnglishCorpus)
+{
+  morfessor::Corpus c{"../testdata/test-full-english-corpus.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(822962.11904, st.ProbabilityFromExplicitFrequencies(),
+      threshold);
+}
+
+// Implicit frequency tests
+// Implicit frequency can only be compared to the reference implementation
+// for large datasets.
+
+TEST(SegmentationTree, ImplicitFrequencyCost_ReferenceTest3)
+{
+  morfessor::Corpus c{"../testdata/test3.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(4165.46499, st.ProbabilityFromImplicitFrequencies(), threshold);
+}
+
+TEST(SegmentationTree, ImplicitFrequencyCost_ReferenceTestFullEnglishCorpus)
+{
+  morfessor::Corpus c{"../testdata/test-full-english-corpus.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(1444149.68019, st.ProbabilityFromImplicitFrequencies(),
+      threshold);
+}
+
+// Test morph string costs
+
+TEST(SegmentationTree, MorphStringCost_ReferenceTest1)
+{
+  morfessor::Corpus c{"../testdata/test1.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(66.42218, st.ProbabilityFromLetters(), threshold);
+}
+
+TEST(SegmentationTree, MorphStringCost_ReferenceTest2)
+{
+  morfessor::Corpus c{"../testdata/test2.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(99.38380, st.ProbabilityFromLetters(), threshold);
+}
+
+TEST(SegmentationTree, MorphStringCost_ReferenceTest3)
+{
+  morfessor::Corpus c{"../testdata/test3.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(17957.46139, st.ProbabilityFromLetters(), threshold);
+}
+
+TEST(SegmentationTree, MorphStringCost_ReferenceTestFullEnglishCorpus)
+{
+  morfessor::Corpus c{"../testdata/test-full-english-corpus.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(6198711.87999, st.ProbabilityFromLetters(), threshold);
+}
+
+// Test morph length costs (implicit calculation method)
+
+TEST(SegmentationTree, ImplicitMorphLengthCost_ReferenceTest1)
+{
+  morfessor::Corpus c{"../testdata/test1.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(8.59521, st.ProbabilityFromImplicitLengths(), threshold);
+}
+
+TEST(SegmentationTree, ImplicitMorphLengthCost_ReferenceTest2)
+{
+  morfessor::Corpus c{"../testdata/test2.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(11.70400, st.ProbabilityFromImplicitLengths(), threshold);
+}
+
+TEST(SegmentationTree, ImplicitMorphLengthCost_ReferenceTest3)
+{
+  morfessor::Corpus c{"../testdata/test3.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(1323.25343, st.ProbabilityFromImplicitLengths(), threshold);
+}
+
+TEST(SegmentationTree, ImplicitMorphLengthCost_ReferenceTestFullEnglishCorpus)
+{
+  morfessor::Corpus c{"../testdata/test-full-english-corpus.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(410817.33961, st.ProbabilityFromImplicitLengths(), threshold);
+}
+
+// Test probability adjustment based on morph orders in the lexicon
+
+TEST(SegmentationTree, MorphOrderAdjustment_ReferenceTest1)
+{
+  morfessor::Corpus c{"../testdata/test1.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(-0.42680, st.ProbabilityAdjustmentFromLexiconOrdering(),
+      threshold);
+}
+
+TEST(SegmentationTree, MorphOrderAdjustment_ReferenceTest2)
+{
+  morfessor::Corpus c{"../testdata/test2.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(-2.22922, st.ProbabilityAdjustmentFromLexiconOrdering(),
+      threshold);
+}
+
+TEST(SegmentationTree, MorphOrderAdjustment_ReferenceTest3)
+{
+  morfessor::Corpus c{"../testdata/test3.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(-3689.91118, st.ProbabilityAdjustmentFromLexiconOrdering(),
+      threshold);
+}
+
+TEST(SegmentationTree, MorphOrderAdjustment_ReferenceTestFullEnglishCorpus)
+{
+  morfessor::Corpus c{"../testdata/test-full-english-corpus.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(-2662975.89120, st.ProbabilityAdjustmentFromLexiconOrdering(),
+      threshold);
+}
 

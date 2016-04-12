@@ -27,6 +27,7 @@
 #include <cassert>
 #include <string>
 #include <unordered_map>
+
 #include <boost/math/special_functions/binomial.hpp>
 
 #include "morph.h"
@@ -125,6 +126,7 @@ class SegmentationTree {
   /// hapax legomena in the corpus. The result is a power law curve obtained
   /// from a derivation of the Zipf-Mandlebrot law.
   /// @see set_hapax_legomena_prior
+  /// @return Code length (-log_2 probability)
   Probability ProbabilityFromExplicitFrequencies() const;
 
   /// Sets the prior belief for the proportion of morphs that only occur once
@@ -138,6 +140,7 @@ class SegmentationTree {
   /// prior that does not take individual morph frequencies into account.
   /// The result is an exponential distribution, where higher frequencies
   /// are exponentially less likely.
+  /// @return Code length (-log_2 probability)
   Probability ProbabilityFromImplicitFrequencies() const;
 
   /// Calculates the contribution of the lengths of the morphs in the corpus
@@ -146,10 +149,23 @@ class SegmentationTree {
   /// the letters in a morph are independent as well. The result is an
   /// exponential distribution, i.e., the likelihood of a morph of a given
   /// length decreases exponentially with its length.
+  /// @return Code length (-log_2 probability)
   Probability ProbabilityFromImplicitLengths() const;
+
+  /// Calculates the adjustment to the probability of the lexicon based
+  /// on the number of ways there are to order each morph in the lexicon.
+  /// @return Code length (-log_2 probability)
+  Probability ProbabilityAdjustmentFromLexiconOrdering() const;
+
+  /// Calculates the contribution of the letters in each of the morphs
+  /// to the probability of the lexicon given the model. Can also be
+  /// understood as the morph string cost.
+  /// @return Code length (-log_2 probability)
+  Probability ProbabilityFromLetters() const;
 
   /// Calculates the probabilities of each letter in the corpus, and the
   /// end-of-morph marker.
+  /// @return A map of letters to code lengths (-log_2 probability)
   std::unordered_map<char, Probability> LetterProbabilities() const;
 
   /// Returns true if the given morph is in the data structure.
@@ -249,7 +265,6 @@ inline Probability SegmentationTree::ProbabilityOfMorph(
 
 inline Probability
 SegmentationTree::ProbabilityFromImplicitFrequencies() const {
-
   // Formula without approximation
   if (total_morph_tokens_ < 100) {
     return std::log2(boost::math::binomial_coefficient<Probability>(

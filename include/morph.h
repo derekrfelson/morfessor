@@ -24,6 +24,7 @@
 #define INCLUDE_MORPH_H_
 
 #include <string>
+
 #include "types.h"
 
 namespace morfessor

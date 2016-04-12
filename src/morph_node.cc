@@ -28,8 +28,7 @@
 #include "corpus.h"
 #include "morph.h"
 
-namespace morfessor
-{
+namespace morfessor {
 
 SegmentationTree::SegmentationTree()
     : nodes_{} {}
@@ -137,16 +136,41 @@ Probability SegmentationTree::ProbabilityFromImplicitLengths() const {
   Probability sum = 0;
   for (const auto& iter : nodes_) {
     if (!iter.second.has_children()) {
+      auto& node = iter.second;
+      sum += letter_probabilities['#'];
+    }
+  }
+
+  return sum;
+}
+
+
+Probability SegmentationTree::ProbabilityFromLetters() const {
+  auto letter_probabilities = LetterProbabilities();
+  Probability sum = 0;
+  auto p_end = letter_probabilities['#'];
+  auto p_not_end = 1 - p_end;
+
+  for (const auto& iter : nodes_) {
+    if (!iter.second.has_children()) {
       auto& morph_string = iter.first;
       auto& node = iter.second;
       for (auto c : morph_string)
       {
-        sum += letter_probabilities[c] * node.count;
+        sum += letter_probabilities[c];
       }
     }
   }
 
-  return 0;
+  return sum;
+}
+
+Probability SegmentationTree::ProbabilityAdjustmentFromLexiconOrdering()
+const {
+  // Use the first term of Sterling's approximation
+  // log n! ~ n * log(n - 1)
+  return (unique_morph_types_ * (1 - std::log(unique_morph_types_)))
+      / std::log(2);
 }
 
 void SegmentationTree::RemoveNode(const MorphNode& node_to_remove,

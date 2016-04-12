@@ -1,0 +1,4 @@
+1 going
+2 walking
+4 deciding
+8 relief
