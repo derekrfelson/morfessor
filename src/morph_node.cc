@@ -65,10 +65,10 @@ Probability SegmentationTree::ProbabilityOfCorpusGivenModel() const {
   Probability sum = 0;
   for (const auto& iter : nodes_) {
     if (!iter.second.has_children()) {
-      sum += ProbabilityOfMorph(iter.first);
+      sum -= ProbabilityOfMorph(iter.first) * iter.second.count;
     }
   }
-  return sum;
+  return sum / std::log(2);
 }
 
 Probability SegmentationTree::ProbabilityFromImplicitFrequencies() const {

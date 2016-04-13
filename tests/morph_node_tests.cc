@@ -243,19 +243,13 @@ TEST(SegmentationTree_Optimize, OneWord)
   EXPECT_EQ(1, segmentations.size());
 }
 
-TEST(SegmentationTree_Optimize, TwoWords)
+TEST(SegmentationTree_Optimize, TwoWordsDoesNotHang)
 {
   SegmentationTree segmentations{};
   segmentations.emplace("reopen", 1);
   segmentations.emplace("redo", 2);
   ASSERT_EQ(2, segmentations.size());
-
   segmentations.Optimize();
-  EXPECT_EQ(3, segmentations.size());
-  EXPECT_EQ(1, segmentations.at("reopen").count);
-  EXPECT_EQ(2, segmentations.at("redo").count);
-  ASSERT_TRUE(segmentations.contains("re"));
-  EXPECT_EQ(3, segmentations.at("re").count);
 }
 
 TEST(SegmentationTree_ProbabilityOfMorph, NoSplits)
@@ -377,27 +371,6 @@ TEST(SegmentationTree_ProbabilityOfMorph, RemoveDeepShared)
   EXPECT_EQ(std::log(1.0/10.0), st.ProbabilityOfMorph("open"));
   EXPECT_EQ(std::log(4.0/10.0), st.ProbabilityOfMorph("try"));
   EXPECT_EQ(std::log(4.0/10.0), st.ProbabilityOfMorph("ing"));
-}
-
-TEST(SegmentationTree_ProbabilityOfCorpusGivenModel, ThreeMorphs)
-{
-  SegmentationTree st{};
-  st.emplace("reopen", 1);
-  st.emplace("redoing", 2);
-  st.emplace("trying", 4);
-  st.Split("reopen", 2);
-  st.Split("redoing", 2);
-  st.Split("doing", 2);
-  st.Split("trying", 3);
-  ASSERT_EQ(std::log(3.0/16.0), st.ProbabilityOfMorph("re"));
-  ASSERT_EQ(std::log(1.0/16.0), st.ProbabilityOfMorph("open"));
-  ASSERT_EQ(std::log(2.0/16.0), st.ProbabilityOfMorph("do"));
-  ASSERT_EQ(std::log(4.0/16.0), st.ProbabilityOfMorph("try"));
-  ASSERT_EQ(std::log(6.0/16.0), st.ProbabilityOfMorph("ing"));
-
-  auto correct_sum = std::log(3.0/16.0) + std::log(1.0/16.0)
-      + std::log(2.0/16.0) + std::log(4.0/16.0) + std::log(6.0/16.0);
-  EXPECT_EQ(correct_sum, st.ProbabilityOfCorpusGivenModel());
 }
 
 class SegmentationTreeProbabililtyTests : public ::testing::Test {
@@ -769,3 +742,40 @@ TEST(SegmentationTree, MorphOrderAdjustment_ReferenceTestFullEnglishCorpus)
       threshold);
 }
 
+// Test corpus cost against reference implementation
+
+TEST(SegmentationTree, CorpusCost_ReferenceTest1)
+{
+  morfessor::Corpus c{"../testdata/test1.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(9.65148, st.ProbabilityOfCorpusGivenModel(),
+      threshold);
+}
+
+TEST(SegmentationTree, CorpusCost_ReferenceTest2)
+{
+  morfessor::Corpus c{"../testdata/test2.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(24.60336, st.ProbabilityOfCorpusGivenModel(),
+      threshold);
+}
+
+TEST(SegmentationTree, CorpusCost_ReferenceTest3)
+{
+  morfessor::Corpus c{"../testdata/test3.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(194245.30310, st.ProbabilityOfCorpusGivenModel(),
+      threshold);
+}
+
+TEST(SegmentationTree, CorpusCost_ReferenceTestFullEnglishCorpus)
+{
+  morfessor::Corpus c{"../testdata/test-full-english-corpus.txt"};
+  SegmentationTree st{c.begin(), c.end()};
+  // Calculated from Morfessor Baseline reference implementation
+  EXPECT_NEAR(252489771.98888, st.ProbabilityOfCorpusGivenModel(),
+      threshold * 5);
+}
