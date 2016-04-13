@@ -23,6 +23,7 @@
 #ifndef INCLUDE_MORPH_NODE_H_
 #define INCLUDE_MORPH_NODE_H_
 
+#include <cstddef>
 #include <cmath>
 #include <cassert>
 #include <string>
@@ -117,6 +118,21 @@ class SegmentationTree {
   /// Calculates the probability of the corpus given the model.
   Probability ProbabilityOfCorpusGivenModel() const;
 
+  /// Calculates code length of the lexicon given the model.
+  /// If you choose a mode with parameters, you will have to either use the
+  /// defaults or set them to what you want before calling this. The
+  /// Baseline (not Freq or Length) is the only one with no parameters.
+  /// @param mode Which variant of the Morfessor Baseline algorithm to use.
+  Probability LexiconCost(AlgorithmModes mode) const;
+
+  /// Calculates the code length code of the corpus and the lexicon given
+  /// the model.
+  /// If you choose a mode with parameters, you will have to either use the
+  /// defaults or set them to what you want before calling this. The
+  /// Baseline (not Freq or Length) is the only one with no parameters.
+  /// @param mode Which variant of the Morfessor Baseline algorithm to use.
+  Probability OverallCost(AlgorithmModes mode) const;
+
   /// Calculates the contribution of the frequencies in the corpus
   /// to the probability of the lexicon given the model. Uses the explicit
   /// version of the frequency calculation, which takes the individual morph
@@ -161,16 +177,20 @@ class SegmentationTree {
   /// @return Code length (-log_2 probability)
   Probability ProbabilityAdjustmentFromLexiconOrdering() const;
 
-  /// Calculates the contribution of the letters in each of the morphs
-  /// to the probability of the lexicon given the model. Can also be
-  /// understood as the morph string cost.
-  /// @return Code length (-log_2 probability)
-  Probability ProbabilityFromLetters() const;
+  /// Calculates the cost of the spelling out the letters in the morph strings.
+  /// @param use_implicit_length True if we are calculating lengths using
+  ///   the implicit method. If so, we consider "end of string" to be its own
+  ///   separate character, which adjusts the probabilities slightly.
+  Probability MorphStringCost(bool use_implicit_length) const;
 
   /// Calculates the probabilities of each letter in the corpus, and the
   /// end-of-morph marker.
+  /// @param include_end_of_string Whether to consider "end of string" a
+  ///   letter when computing probabilities. Should be true when using
+  ///   the implicit length variants of the algorithm.
   /// @return A map of letters to code lengths (-log_2 probability)
-  std::unordered_map<char, Probability> LetterProbabilities() const;
+  std::unordered_map<char, Probability> LetterProbabilities(
+      bool include_end_of_string) const;
 
   /// Returns true if the given morph is in the data structure.
   /// @param morph The word or morph to look for.

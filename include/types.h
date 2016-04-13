@@ -23,12 +23,22 @@
 #ifndef INCLUDE_TYPES_H_
 #define INCLUDE_TYPES_H_
 
-#include <cstddef>
-
 namespace morfessor
 {
 
 using Probability = double;
+
+/// Represents the four variants of the Morfessor Baseline algorithm.
+enum class AlgorithmModes : unsigned int {
+  /// Uses implicit frequency and length formulas
+  kBaseline = 0,
+  /// Uses explicit frequency formula, implicit length formula
+  kBaselineFreq,
+  /// Uses implicit frequency formula, explicit length formula
+  kBaselineLength,
+  /// Uses explicit frequency and length formulas
+  kBaselineFreqLength
+};
 
 } // namespace morfessor
 

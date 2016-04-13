@@ -24,6 +24,7 @@
 
 #include <cassert>
 #include <array>
+#include <iostream>
 
 #include <boost/math/distributions/gamma.hpp>
 #include <boost/math/special_functions/binomial.hpp>
@@ -110,7 +111,7 @@ Probability SegmentationTree::ProbabilityFromExplicitFrequencies() const {
 }
 
 std::unordered_map<char, Probability>
-SegmentationTree::LetterProbabilities() const
+SegmentationTree::LetterProbabilities(bool include_end_of_string) const
 {
   // Calculate the probabilities of each letter in the corpus
   std::unordered_map<char, Probability> letter_probabilities;
@@ -139,8 +140,10 @@ SegmentationTree::LetterProbabilities() const
   assert(unique_morphs == unique_morph_types_);
   assert(total_morph_tokens == total_morph_tokens_);
 
-  // We count the "end of morph" character as a letter
-  total_letters += total_morph_tokens;
+  if (include_end_of_string) {
+    // We count the "end of morph" character as a letter
+    total_letters += total_morph_tokens;
+  }
 
   // Calculate the actual letter probabilities using maximum likelihood
   auto log_total_letters = std::log2(total_letters);
@@ -150,16 +153,18 @@ SegmentationTree::LetterProbabilities() const
         log_total_letters - std::log2(letter_probabilities[iter.first]);
   }
 
-  // The "end of morph string" character can be understood to appear
-  // at the end of every string, i.e. total_morph_tokens number of times.
-  letter_probabilities['#'] =
-      log_total_letters - std::log2(total_morph_tokens);
+  if (include_end_of_string) {
+    // The "end of morph string" character can be understood to appear
+    // at the end of every string, i.e. total_morph_tokens number of times.
+    letter_probabilities['#'] =
+        log_total_letters - std::log2(total_morph_tokens);
+  }
 
   return letter_probabilities;
 }
 
 Probability SegmentationTree::ProbabilityFromImplicitLengths() const {
-  auto letter_probabilities = LetterProbabilities();
+  auto letter_probabilities = LetterProbabilities(true);
 
   Probability sum = 0;
   for (const auto& iter : nodes_) {
@@ -187,8 +192,8 @@ Probability SegmentationTree::ProbabilityFromExplicitLengths(
   return sum;
 }
 
-Probability SegmentationTree::ProbabilityFromLetters() const {
-  auto letter_probabilities = LetterProbabilities();
+Probability SegmentationTree::MorphStringCost(bool use_implicit_length) const {
+  auto letter_probabilities = LetterProbabilities(use_implicit_length);
   Probability sum = 0;
   auto p_end = letter_probabilities['#'];
   auto p_not_end = 1 - p_end;
@@ -245,6 +250,37 @@ void SegmentationTree::RemoveNode(const MorphNode& node_to_remove,
     }
     nodes_.erase(nodes_.find(subtree_key));
   }
+}
+
+Probability SegmentationTree::LexiconCost(AlgorithmModes mode) const {\
+  auto sum = ProbabilityAdjustmentFromLexiconOrdering();
+  switch (mode) {
+  case AlgorithmModes::kBaseline:
+    sum += ProbabilityFromImplicitFrequencies();
+    sum += ProbabilityFromImplicitLengths();
+    sum += MorphStringCost(true);
+    break;
+  case AlgorithmModes::kBaselineFreq:
+    sum += ProbabilityFromExplicitFrequencies();
+    sum += ProbabilityFromImplicitLengths();
+    sum += MorphStringCost(true);
+    break;
+  case AlgorithmModes::kBaselineFreqLength:
+    sum += ProbabilityFromExplicitFrequencies();
+    sum += ProbabilityFromExplicitLengths();
+    sum += MorphStringCost(false);
+    break;
+  case AlgorithmModes::kBaselineLength:
+    sum += ProbabilityFromImplicitFrequencies();
+    sum += ProbabilityFromExplicitLengths();
+    sum += MorphStringCost(false);
+    break;
+  }
+  return sum;
+}
+
+Probability SegmentationTree::OverallCost(AlgorithmModes mode) const {
+  return LexiconCost(mode) + ProbabilityOfCorpusGivenModel();
 }
 
 void SegmentationTree::Optimize() {
