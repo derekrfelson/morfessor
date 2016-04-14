@@ -183,13 +183,14 @@ SegmentationTree::LetterProbabilities(bool include_end_of_string) const
 }
 
 Probability SegmentationTree::ProbabilityFromImplicitLengths() const {
-  auto letter_probabilities = LetterProbabilities(true);
-
+  if (letter_probabilities_.size() == 0) {
+    letter_probabilities_ = LetterProbabilities(true);
+  }
   Probability sum = 0;
   for (const auto& iter : nodes_) {
     if (!iter.second.has_children()) {
       auto& node = iter.second;
-      sum += letter_probabilities['#'];
+      sum += letter_probabilities_.at('#');
     }
   }
 
@@ -212,9 +213,11 @@ Probability SegmentationTree::ProbabilityFromExplicitLengths(
 }
 
 Probability SegmentationTree::MorphStringCost(bool use_implicit_length) const {
-  auto letter_probabilities = LetterProbabilities(use_implicit_length);
+  if (letter_probabilities_.size() == 0) {
+    letter_probabilities_ = LetterProbabilities(use_implicit_length);
+  }
   Probability sum = 0;
-  auto p_end = letter_probabilities['#'];
+  auto p_end = letter_probabilities_.at('#');
   auto p_not_end = 1 - p_end;
 
   for (const auto& iter : nodes_) {
@@ -223,7 +226,7 @@ Probability SegmentationTree::MorphStringCost(bool use_implicit_length) const {
       auto& node = iter.second;
       for (auto c : morph_string)
       {
-        sum += letter_probabilities[c];
+        sum += letter_probabilities_.at(c);
       }
     }
   }
@@ -303,6 +306,11 @@ Probability SegmentationTree::OverallCost(AlgorithmModes mode) const {
 }
 
 void SegmentationTree::Optimize() {
+  // Some things only need to be computed once.
+  letter_probabilities_ = LetterProbabilities(
+      algorithm_mode_ == AlgorithmModes::kBaseline
+      || algorithm_mode_ == AlgorithmModes::kBaselineFreq);
+
   std::vector<std::string> keys;
   // Collect all the nodes we will iterate over
   for (const auto& node_pair : nodes_) {

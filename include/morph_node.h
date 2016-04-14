@@ -306,7 +306,7 @@ class SegmentationTree {
 
   /// Contains the probabilities of each letter in the corpus.
   /// The "end of morph" marker is '#'.
-  std::unordered_map<char, Probability> letter_probabilities_;
+  mutable std::unordered_map<char, Probability> letter_probabilities_;
 };
 
 inline bool MorphNode::has_children() const noexcept {
