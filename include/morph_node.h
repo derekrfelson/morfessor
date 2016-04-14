@@ -235,6 +235,12 @@ class SegmentationTree {
   void RemoveNode(const MorphNode& node_to_remove,
       const std::string& subtree_key);
 
+  /// Recursively update the node count for all nodes rooted at a given node.
+  /// If the given node does not exist, creates it.
+  /// @param subtree_key The subtree we are recursively operating on this time.
+  /// @param increase The amount to increase the node count by.
+  void IncreaseNodeCount(const std::string& subtree_key, size_t increase);
+
   /// The data structure containing the morphs and their splits.
   std::unordered_map<std::string, MorphNode> nodes_;
 

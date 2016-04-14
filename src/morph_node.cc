@@ -39,7 +39,7 @@ SegmentationTree::SegmentationTree()
 
 void SegmentationTree::Split(const std::string& morph, size_t left_length) {
   assert(morph.size() > 1);
-  assert(left_length > 0 && left_length < morph.size() - 1);
+  assert(left_length > 0 && left_length < morph.size());
   auto found_node = nodes_.find(morph);
   assert(found_node != end(nodes_));
   MorphNode* node = &found_node->second;
@@ -47,12 +47,9 @@ void SegmentationTree::Split(const std::string& morph, size_t left_length) {
 
   node->left_child = morph.substr(0, left_length);
   node->right_child = morph.substr(left_length);
-  nodes_[node->left_child].count += node->count;
-  nodes_[node->right_child].count += node->count;
-
-  // We only count leaf nodes, and we're losing one leaf node
-  // and adding two every time we split.
-  total_morph_tokens_ += node->count;
+  total_morph_tokens_ -= node->count;  // No longer a leaf node
+  IncreaseNodeCount(node->left_child, node->count);
+  IncreaseNodeCount(node->right_child, node->count);
 
   // We lost one unique morph by splitting what we started with, but we
   // may have gained up to two new unique morphs, depending on whether
@@ -60,6 +57,26 @@ void SegmentationTree::Split(const std::string& morph, size_t left_length) {
   unique_morph_types_ += -1
       + static_cast<int>(nodes_[node->left_child].count == node->count)
       + static_cast<int>(nodes_[node->right_child].count == node->count);
+}
+
+void SegmentationTree::IncreaseNodeCount(const std::string& subtree_key,
+    size_t increase) {
+  MorphNode& subtree = nodes_[subtree_key];
+
+  // Recursively update the node's children, if they exist
+  if (!subtree.left_child.empty()) {
+    IncreaseNodeCount(subtree.left_child, increase);
+  }
+  if (!subtree.right_child.empty()) {
+    IncreaseNodeCount(subtree.right_child, increase);
+  }
+
+  subtree.count += increase;
+
+  // Update probabilities if subtree is leaf node
+  if (!subtree.has_children()) {
+    total_morph_tokens_ += increase;
+  }
 }
 
 Probability SegmentationTree::ProbabilityOfCorpusGivenModel() const {
@@ -224,7 +241,7 @@ void SegmentationTree::RemoveNode(const MorphNode& node_to_remove,
     const std::string& subtree_key) {
   MorphNode& subtree = nodes_.at(subtree_key);
 
-  // Recursively remove the nodes childrens, if they exist
+  // Recursively remove the node's children, if they exist
   if (!subtree.left_child.empty()) {
     RemoveNode(node_to_remove, subtree.left_child);
   }
@@ -310,17 +327,17 @@ void SegmentationTree::ResplitNode(const std::string& morph) {
 
 	// Save a copy of this as our current best solution
 	pr_model_given_corpus_ = OverallCost(AlgorithmModes::kBaseline);
-	auto best_solution_probability = pr_model_given_corpus_;
-	size_t best_solution_split_index = 0;
+	size_t best_split_index = 0;
 
-	// Then try every split of the node into two substrings
-	pr_model_given_corpus_ -= 0;  // TODO: actual logprob
-	auto current_pr_model_given_corpus = pr_model_given_corpus_;
-	auto current_unique_morph_types = unique_morph_types_;
-	auto current_total_morph_tokens = total_morph_tokens_;
-	auto data_structure_backup = nodes_;
+	// Save the unsplit version of the data structure for later
+	auto nosplit_pr_model_given_corpus = pr_model_given_corpus_;
+	auto nosplit_unique_morph_types = unique_morph_types_;
+	auto nosplit_total_morph_tokens = total_morph_tokens_;
+	auto nosplit_data_structure = nodes_;
+
+	// Try every split of the node into two substrings
 	for (auto split_index = 1; split_index < morph.size(); ++split_index) {
-	  std::array<std::string, 2> subnode_keys = {
+	  /*std::array<std::string, 2> subnode_keys = {
 	      morph.substr(0, split_index), morph.substr(split_index)
 	  };
 	  for (auto& key : subnode_keys) {
@@ -338,31 +355,27 @@ void SegmentationTree::ResplitNode(const std::string& morph) {
 	      pr_frequencies_ += 0;  // TODO: actual logprob
 	      pr_lengths_ += 0;  // TODO: actual logprob
 	    }
-	  }
-	  // TODO: check if we should use < or >
-	  pr_model_given_corpus_ = OverallCost(AlgorithmModes::kBaseline);
-	  if (pr_model_given_corpus_ < best_solution_probability) {
-	    best_solution_probability = pr_model_given_corpus_;
-	    best_solution_split_index = split_index;
+	  }*/
+
+	  // Try the split and see if it improves the overall cost
+	  Split(morph, split_index);
+	  auto new_overall_cost = OverallCost(AlgorithmModes::kBaseline);
+	  if (new_overall_cost < pr_model_given_corpus_) {
+	    pr_model_given_corpus_ = new_overall_cost;
+	    best_split_index = split_index;
 	  }
 
-	  // Restore old data structure and probability
-	  nodes_ = data_structure_backup;
-	  pr_model_given_corpus_ = current_pr_model_given_corpus;
-	  unique_morph_types_ = current_unique_morph_types;
-	  total_morph_tokens_ = current_total_morph_tokens;
+	  // Undo the hypothetical split we just made
+	  nodes_ = nosplit_data_structure;
+	  unique_morph_types_ = nosplit_unique_morph_types;
+	  total_morph_tokens_ = nosplit_total_morph_tokens;
 	}
 
-	// Select the best split or no split
-	pr_model_given_corpus_ = best_solution_probability;
-	if (best_solution_split_index > 0) {
-	  auto left_key = morph.substr(0, best_solution_split_index);
-	  auto right_key = morph.substr(best_solution_split_index);
-	  Split(morph, best_solution_split_index);
-
-	  // Proceed by splitting recursively
-	  ResplitNode(left_key);
-	  ResplitNode(right_key);
+	// If the model says we should split, then do it and split recursively
+	if (best_split_index > 0) {
+	  Split(morph, best_split_index);
+	  ResplitNode(at(morph).left_child);
+	  ResplitNode(at(morph).right_child);
 	}
 }
 

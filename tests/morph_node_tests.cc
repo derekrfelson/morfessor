@@ -133,6 +133,30 @@ TEST(SegmentationTree_Split, CountCombinedWithDeepSharedElements)
   EXPECT_EQ(6, segmentations.at("try").count);
 }
 
+TEST(SegmentationTree_Split, RecursiveNodeCount)
+{
+  SegmentationTree segmentations{};
+  segmentations.emplace("reorganization", 1);
+  segmentations.emplace("reorganizes", 2);
+
+  segmentations.Split("reorganization", 9);
+  segmentations.Split("reorganiz", 2);
+  segmentations.Split("organiz", 5);
+  ASSERT_EQ(6, segmentations.total_morph_tokens());
+
+  segmentations.Split("reorganizes", 9);
+  EXPECT_EQ(12, segmentations.total_morph_tokens());
+  EXPECT_EQ(2, segmentations.at("reorganizes").count);
+  EXPECT_EQ(1, segmentations.at("reorganization").count);
+  EXPECT_EQ(1, segmentations.at("ation").count);
+  EXPECT_EQ(3, segmentations.at("reorganiz").count);
+  EXPECT_EQ(3, segmentations.at("re").count);
+  EXPECT_EQ(3, segmentations.at("organ").count);
+  EXPECT_EQ(3, segmentations.at("iz").count);
+  EXPECT_EQ(3, segmentations.at("organiz").count);
+  EXPECT_EQ(2, segmentations.at("es").count);
+}
+
 TEST(SegmentationTree_Remove, CountDecreasedSimpleCase)
 {
   SegmentationTree segmentations{};
