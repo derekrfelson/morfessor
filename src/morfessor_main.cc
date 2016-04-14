@@ -24,6 +24,7 @@
 
 #include <cassert>
 #include <iostream>
+#include <fstream>
 
 #include <gflags/gflags.h>
 
@@ -32,42 +33,79 @@
 
 using Corpus = morfessor::Corpus;
 using SegmentationTree = morfessor::SegmentationTree;
+using AlgorithmModes = morfessor::AlgorithmModes;
 
-DEFINE_bool(use_explicit_freq, false,
-    "enables explicit frequency calculation");
+DEFINE_string(mode, "Baseline", "algorithm version to use "
+    "(Baseline, Freq, Length, FreqLength)");
 DEFINE_string(data, "", "word list to segment");
 DEFINE_string(load, "", "pre-segmented word list to use as model");
 DEFINE_double(zipffreqdistr, 0.5, "prior probability for "
-    "proportion of morphs that only appear once");
+    "proportion of morphs that only appear once. Must be in range (0,1)");
+DEFINE_double(finish, 0.005, "threshold for when to stop trying to improve"
+    " the lexicon cost. Must be in range (0,1)");
+DEFINE_double(most_common_length, 7, "most common morph length");
+DEFINE_double(beta, 1.0, "beta value for morph length Gamma "
+    "distribution");
 
 static bool ValidateProportion(const char* flagname, double value) {
   return value > 0 && value < 1;
 }
 
-static bool ValidatePath(const char* flagname, const std::string& path) {
+static bool ValidateLoad(const char* flagname, const std::string& path) {
   return path == "" || access(path.c_str(), F_OK) != -1;
+}
+
+static bool ValidateData(const char* flagname, const std::string& path) {
+  return access(path.c_str(), F_OK) != -1;
+}
+
+static bool ValidateMode(const char* flagname, const std::string& mode) {
+  return mode == "Baseline" || mode == "Freq" || mode == "Length" ||
+      mode == "FreqLength";
+}
+
+static bool ValidateBeta(const char* flagname, double beta) {
+  return beta > 0;
+}
+
+static bool ValidateLength(const char* flagname, double length) {
+  return length > 0 && length < 24*FLAGS_beta;
 }
 
 int main(int argc, char** argv)
 {
   gflags::RegisterFlagValidator(&FLAGS_zipffreqdistr, &ValidateProportion);
-  gflags::RegisterFlagValidator(&FLAGS_data, &ValidatePath);
-  gflags::RegisterFlagValidator(&FLAGS_load, &ValidatePath);
+  gflags::RegisterFlagValidator(&FLAGS_finish, &ValidateProportion);
+  gflags::RegisterFlagValidator(&FLAGS_data, &ValidateData);
+  gflags::RegisterFlagValidator(&FLAGS_load, &ValidateLoad);
+  gflags::RegisterFlagValidator(&FLAGS_mode, &ValidateMode);
+  gflags::RegisterFlagValidator(&FLAGS_most_common_length, &ValidateLength);
+  gflags::RegisterFlagValidator(&FLAGS_beta, &ValidateBeta);
+
   google::ParseCommandLineFlags(&argc, &argv, true);
-
-  if (FLAGS_use_explicit_freq)
-  {
-    std::cout << "use explicit freq" << std::endl;
-  }
-
-  if (FLAGS_zipffreqdistr)
-  {
-    std::cout << "zipffreqdistr: " << FLAGS_zipffreqdistr << std::endl;
-  }
 
   Corpus corpus{FLAGS_data};
   SegmentationTree st{corpus.begin(), corpus.end()};
+
+  // Set algorithm parameters
+  if (FLAGS_mode == "FreqLength") {
+    st.set_algorithm_mode(AlgorithmModes::kBaselineFreqLength);
+  } else if (FLAGS_mode == "Freq") {
+    st.set_algorithm_mode(AlgorithmModes::kBaselineFreq);
+  } else if (FLAGS_mode == "Length") {
+    st.set_algorithm_mode(AlgorithmModes::kBaselineLength);
+  } else {
+    st.set_algorithm_mode(AlgorithmModes::kBaseline);
+  }
+  st.set_hapax_legomena_prior(FLAGS_zipffreqdistr);
+  st.set_convergence_threshold(FLAGS_finish);
+  st.set_beta(FLAGS_beta);
+  st.set_most_common_morph_length(FLAGS_most_common_length);
+
+  std::cout << st;
   st.Optimize();
+  auto out = std::ofstream("output.dot");
+  st.print_dot(out);
   std::cout << st;
 
   return 0;

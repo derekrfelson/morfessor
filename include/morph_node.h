@@ -144,11 +144,6 @@ class SegmentationTree {
   /// @return Code length (-log_2 probability)
   Probability ProbabilityFromExplicitFrequencies() const;
 
-  /// Sets the prior belief for the proportion of morphs that only occur once
-  /// in the corpus.
-  /// @value The expected proportion. Must be in range (0,1)
-  void set_hapax_legomena_prior(double value);
-
   /// Calculates the contribution of the frequencies in the corpus
   /// to the probability of the lexicon given the model. Uses the implicit
   /// version of the frequency calculation, which involves an uninformative
@@ -219,9 +214,35 @@ class SegmentationTree {
   /// Returns the number of unique morphs in the data structure.
   size_t unique_morph_types() const noexcept;
 
+  /// Sets the prior belief for the proportion of morphs that only occur once
+  /// in the corpus.
+  /// @value The expected proportion. Must be in range (0,1)
+  void set_hapax_legomena_prior(double value);
+
+  /// Change the threshold for when to stop iterating over the lexicon to
+  /// try to improve it.
+  /// @param value Must be in range 0 < value < 1.
+  void set_convergence_threshold(double value);
+
+  /// Set the variant of the Morfessor Baseline algorithm to use.
+  /// @param mode The version to use.
+  void set_algorithm_mode(AlgorithmModes mode);
+
+  /// Sets the prior for most common morph length.
+  /// @param value Must be in range 0 < length < 24*beta.
+  void set_most_common_morph_length(double value);
+
+  /// Sets the beta parameter for the length gamma distribution.
+  /// @param value Must be > 0.
+  void set_beta(double value);
+
   /// Prints the current state of the model.
   /// @param out An output stream.
   std::ostream& print(std::ostream& out) const;
+
+  /// Prints the current state of the model as a graphviz dot file.
+  /// @param out An output stream.
+  std::ostream& print_dot(std::ostream& out) const;
 
  private:
   /// Recursively removes a node rooted at a subtree. This is needed
@@ -263,6 +284,25 @@ class SegmentationTree {
   /// in the corpus. Typically this value is between 0.4 and 0.6 for English.
   /// It must be in the range (0,1).
   double hapax_legomena_prior_ = 0.5;
+
+  /// Optimization stops when one pass of resplitting the lexicon does not
+  /// improve the overall cost by more than this amount per word. The smaller
+  /// the value, the longer the program will run and the more accurate it will
+  /// theoretically be, but expect greatly diminishing returns.
+  /// Valid values are between 0 and 1, not inclusive.
+  double convergence_threshold_ = 0.005;
+
+  /// Prior for the most common morph length. Used in the explicit length
+  /// calculations to create the alpha parameter for the gamma distribution.
+  /// Must be in range 0 < length < 24*beta.
+  double most_common_morph_length_ = 7.0;
+
+  /// Beta parameter for the gamma distribution in the explicit length
+  /// calculation. Must be > 0.
+  double beta_ = 1.0;
+
+  /// Governs which variant of the Morfessor Baseline algorithm to use.
+  AlgorithmModes algorithm_mode_ = AlgorithmModes::kBaseline;
 
   /// Contains the probabilities of each letter in the corpus.
   /// The "end of morph" marker is '#'.
@@ -331,6 +371,25 @@ inline size_t SegmentationTree::total_morph_tokens() const noexcept {
 
 inline size_t SegmentationTree::unique_morph_types() const noexcept {
   return unique_morph_types_;
+}
+
+inline void SegmentationTree::set_algorithm_mode(AlgorithmModes mode) {
+  algorithm_mode_ = mode;
+}
+
+inline void SegmentationTree::set_convergence_threshold(double value) {
+  assert(value > 0 && value < 1);
+  convergence_threshold_ = value;
+}
+
+inline void SegmentationTree::set_most_common_morph_length(double value) {
+  assert(value > 0 && value < 24*beta_);
+  most_common_morph_length_ = value;
+}
+
+inline void SegmentationTree::set_beta(double value) {
+  assert(value > 0);
+  beta_ = value;
 }
 
 /// Outputs the segmentation tree.

@@ -24,7 +24,9 @@
 
 #include <cassert>
 #include <array>
-#include <ostream>
+#include <iostream>
+#include <iomanip>
+#include <random>
 
 #include <boost/math/distributions/gamma.hpp>
 #include <boost/math/special_functions/binomial.hpp>
@@ -302,13 +304,28 @@ Probability SegmentationTree::OverallCost(AlgorithmModes mode) const {
 
 void SegmentationTree::Optimize() {
   std::vector<std::string> keys;
+  // Collect all the nodes we will iterate over
   for (const auto& node_pair : nodes_) {
     keys.push_back(node_pair.first);
   }
 
-  for (const auto& key : keys) {
-    ResplitNode(key);
-  }
+  // Word list is randomly shuffled on each iteration
+  std::random_device rd;
+  std::mt19937 g(rd());
+
+  auto old_cost = OverallCost(algorithm_mode_);
+  auto new_cost = old_cost;
+  do {
+    std::shuffle(keys.begin(), keys.end(), g);
+
+    // Try splitting all the nodes
+    old_cost = new_cost;
+    for (const auto& key : keys) {
+      ResplitNode(key);
+    }
+    new_cost = OverallCost(algorithm_mode_);
+    std::cout << *this;
+  } while (old_cost - new_cost > convergence_threshold_ * unique_morph_types_);
 }
 
 void SegmentationTree::ResplitNode(const std::string& morph) {
@@ -321,9 +338,6 @@ void SegmentationTree::ResplitNode(const std::string& morph) {
 
 	// First, try the node as a morph of its own
 	emplace(morph, frequency);
-	pr_corpus_given_model_ += 0;  // TODO: actual lobprob
-	pr_frequencies_ += 0;  // TODO: actual logprob
-	pr_lengths_ += 0;  // TODO: actual logprob
 
 	// Save a copy of this as our current best solution
 	pr_model_given_corpus_ = OverallCost(AlgorithmModes::kBaseline);
@@ -337,29 +351,10 @@ void SegmentationTree::ResplitNode(const std::string& morph) {
 
 	// Try every split of the node into two substrings
 	for (auto split_index = 1; split_index < morph.size(); ++split_index) {
-	  /*std::array<std::string, 2> subnode_keys = {
-	      morph.substr(0, split_index), morph.substr(split_index)
-	  };
-	  for (auto& key : subnode_keys) {
-	    if (contains(key)) {
-	      MorphNode& subnode = nodes_.at(key);
-	      subnode.count += frequency;
-	      if (!subnode.has_children()) {
-	        pr_corpus_given_model_ += 0;  // TODO: actual logprob
-	        pr_frequencies_ += 0;  // TODO: actual logprob
-	        total_morph_tokens_ += frequency;
-	      }
-	    } else {
-	      emplace(key, frequency);
-	      pr_corpus_given_model_ += 0;  // TODO: actual logprob
-	      pr_frequencies_ += 0;  // TODO: actual logprob
-	      pr_lengths_ += 0;  // TODO: actual logprob
-	    }
-	  }*/
-
-	  // Try the split and see if it improves the overall cost
 	  Split(morph, split_index);
-	  auto new_overall_cost = OverallCost(AlgorithmModes::kBaseline);
+
+	  // See if the split improves the cost
+	  auto new_overall_cost = OverallCost(algorithm_mode_);
 	  if (new_overall_cost < pr_model_given_corpus_) {
 	    pr_model_given_corpus_ = new_overall_cost;
 	    best_split_index = split_index;
@@ -374,12 +369,17 @@ void SegmentationTree::ResplitNode(const std::string& morph) {
 	// If the model says we should split, then do it and split recursively
 	if (best_split_index > 0) {
 	  Split(morph, best_split_index);
-	  ResplitNode(at(morph).left_child);
-	  ResplitNode(at(morph).right_child);
+	  assert(nodes_.at(morph).left_child != "");
+	  assert(nodes_.at(morph).right_child != "");
+	  ResplitNode(nodes_.at(morph).left_child );
+	  ResplitNode(nodes_.at(morph).right_child );
 	}
 }
 
 std::ostream& SegmentationTree::print(std::ostream& out) const {
+  out << "Overall cost: " << std::setiosflags(std::ios::fixed)
+      << std::setprecision(5)
+      << OverallCost(algorithm_mode_) << std::endl;
   for (const auto& iter : nodes_) {
     if (!iter.second.has_children()) {
       auto& morph_string = iter.first;
@@ -387,6 +387,28 @@ std::ostream& SegmentationTree::print(std::ostream& out) const {
       out << node.count << " " << morph_string << std::endl;
     }
   }
+  return out;
+}
+
+std::ostream& SegmentationTree::print_dot(std::ostream& out) const {
+  out << "digraph segmentation_tree {" << std::endl;
+  out << "node [shape=record, fontname=\"Arial\"]" << std::endl;
+  for (const auto& iter : nodes_) {
+    auto& morph_string = iter.first;
+    auto& node = iter.second;
+    //out << node.count << " " << morph_string << std::endl;
+    out << "\"" << morph_string << "\" [label=\"" << morph_string << "| "
+        << node.count << "\"]" << std::endl;
+    if (node.left_child != "") {
+      out << "\"" << morph_string << "\" -> \""
+          << node.left_child << "\"" << std::endl;
+    }
+    if (node.right_child != "") {
+      out << "\"" << morph_string << "\" -> \""
+          << node.right_child << "\"" << std::endl;
+    }
+  }
+  out << "}" << std::endl;
   return out;
 }
 
