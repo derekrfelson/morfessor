@@ -26,10 +26,11 @@
 #include <iostream>
 
 #include <gflags/gflags.h>
-#include <boost/math/distributions/gamma.hpp>
 
+#include "corpus.h"
 #include "morph_node.h"
 
+using Corpus = morfessor::Corpus;
 using SegmentationTree = morfessor::SegmentationTree;
 
 DEFINE_bool(use_explicit_freq, false,
@@ -64,14 +65,10 @@ int main(int argc, char** argv)
     std::cout << "zipffreqdistr: " << FLAGS_zipffreqdistr << std::endl;
   }
 
-  auto prior = 7.0;
-  auto beta = 1.0;
-  auto alpha = prior / beta + 1;
-  auto gd = boost::math::gamma_distribution<double>{alpha, beta};
-  for (auto i = 1; i < 25; ++i)
-  {
-    std::cout << "gd[" << i << "] = " << boost::math::pdf(gd, i) << std::endl;
-  }
+  Corpus corpus{FLAGS_data};
+  SegmentationTree st{corpus.begin(), corpus.end()};
+  st.Optimize();
+  std::cout << st;
 
   return 0;
 }

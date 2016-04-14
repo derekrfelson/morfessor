@@ -24,7 +24,7 @@
 
 #include <cassert>
 #include <array>
-#include <iostream>
+#include <ostream>
 
 #include <boost/math/distributions/gamma.hpp>
 #include <boost/math/special_functions/binomial.hpp>
@@ -309,12 +309,15 @@ void SegmentationTree::ResplitNode(const std::string& morph) {
 	pr_lengths_ += 0;  // TODO: actual logprob
 
 	// Save a copy of this as our current best solution
+	pr_model_given_corpus_ = OverallCost(AlgorithmModes::kBaseline);
 	auto best_solution_probability = pr_model_given_corpus_;
 	size_t best_solution_split_index = 0;
 
 	// Then try every split of the node into two substrings
 	pr_model_given_corpus_ -= 0;  // TODO: actual logprob
 	auto current_pr_model_given_corpus = pr_model_given_corpus_;
+	auto current_unique_morph_types = unique_morph_types_;
+	auto current_total_morph_tokens = total_morph_tokens_;
 	auto data_structure_backup = nodes_;
 	for (auto split_index = 1; split_index < morph.size(); ++split_index) {
 	  std::array<std::string, 2> subnode_keys = {
@@ -327,15 +330,17 @@ void SegmentationTree::ResplitNode(const std::string& morph) {
 	      if (!subnode.has_children()) {
 	        pr_corpus_given_model_ += 0;  // TODO: actual logprob
 	        pr_frequencies_ += 0;  // TODO: actual logprob
+	        total_morph_tokens_ += frequency;
 	      }
 	    } else {
-	      emplace(morph, frequency);
+	      emplace(key, frequency);
 	      pr_corpus_given_model_ += 0;  // TODO: actual logprob
 	      pr_frequencies_ += 0;  // TODO: actual logprob
 	      pr_lengths_ += 0;  // TODO: actual logprob
 	    }
 	  }
 	  // TODO: check if we should use < or >
+	  pr_model_given_corpus_ = OverallCost(AlgorithmModes::kBaseline);
 	  if (pr_model_given_corpus_ < best_solution_probability) {
 	    best_solution_probability = pr_model_given_corpus_;
 	    best_solution_split_index = split_index;
@@ -344,6 +349,8 @@ void SegmentationTree::ResplitNode(const std::string& morph) {
 	  // Restore old data structure and probability
 	  nodes_ = data_structure_backup;
 	  pr_model_given_corpus_ = current_pr_model_given_corpus;
+	  unique_morph_types_ = current_unique_morph_types;
+	  total_morph_tokens_ = current_total_morph_tokens;
 	}
 
 	// Select the best split or no split
@@ -351,15 +358,23 @@ void SegmentationTree::ResplitNode(const std::string& morph) {
 	if (best_solution_split_index > 0) {
 	  auto left_key = morph.substr(0, best_solution_split_index);
 	  auto right_key = morph.substr(best_solution_split_index);
-	  nodes_[left_key].count += frequency;
-	  nodes_[right_key].count += frequency;
-	  nodes_.at(morph).left_child = left_key;
-	  nodes_.at(morph).right_child = right_key;
+	  Split(morph, best_solution_split_index);
 
 	  // Proceed by splitting recursively
 	  ResplitNode(left_key);
 	  ResplitNode(right_key);
 	}
+}
+
+std::ostream& SegmentationTree::print(std::ostream& out) const {
+  for (const auto& iter : nodes_) {
+    if (!iter.second.has_children()) {
+      auto& morph_string = iter.first;
+      auto& node = iter.second;
+      out << node.count << " " << morph_string << std::endl;
+    }
+  }
+  return out;
 }
 
 MorphNode::MorphNode()

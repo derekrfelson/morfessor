@@ -28,6 +28,7 @@
 #include <cassert>
 #include <string>
 #include <unordered_map>
+#include <iosfwd>
 
 #include "morph.h"
 #include "types.h"
@@ -205,9 +206,7 @@ class SegmentationTree {
   /// @throw out_of_range exception if the morph was not found.
   MorphNode& at(const std::string& morph);
 
-  /// Returns the morph node corresponding to the given morph.
-  /// @param morph The given morph or word to look up.
-  /// @throw out_of_range exception if the morph was not found.
+  /// \overload
   const MorphNode& at(const std::string& morph) const;
 
   /// Returns the number of nodes in the data structure. This does not form
@@ -219,6 +218,10 @@ class SegmentationTree {
 
   /// Returns the number of unique morphs in the data structure.
   size_t unique_morph_types() const noexcept;
+
+  /// Prints the current state of the model.
+  /// @param out An output stream.
+  std::ostream& print(std::ostream& out) const;
 
  private:
   /// Recursively removes a node rooted at a subtree. This is needed
@@ -294,7 +297,7 @@ inline bool SegmentationTree::contains(const std::string& morph) const {
 inline void SegmentationTree::emplace(const std::string& morph,
     size_t frequency) {
   auto ret = nodes_.emplace(morph, frequency);
-  //assert(ret.second);  // true iff element did not exist before
+  assert(ret.second);  // true iff element did not exist before
   total_morph_tokens_ += frequency;
   unique_morph_types_ += 1;
 }
@@ -316,13 +319,18 @@ inline void SegmentationTree::set_hapax_legomena_prior(double value) {
   hapax_legomena_prior_ = value;
 }
 
-
 inline size_t SegmentationTree::total_morph_tokens() const noexcept {
   return total_morph_tokens_;
 }
 
 inline size_t SegmentationTree::unique_morph_types() const noexcept {
   return unique_morph_types_;
+}
+
+/// Outputs the segmentation tree.
+inline std::ostream& operator<<(std::ostream& out,
+    const SegmentationTree& st) {
+  return st.print(out);
 }
 
 } // namespace morfessor
