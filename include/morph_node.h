@@ -109,7 +109,7 @@ class SegmentationTree {
   /// when when optimizing since in general you do not know how many
   /// morphs comprise a word or what the best split is.
   /// @param morph The word or morph to recursively split.
-  void ResplitNode(const std::string& morph);
+  void ResplitNode(std::string morph);
 
   /// Calculates the probability of a morph. The given word or morph must
   /// be in the data structure.
@@ -243,6 +243,9 @@ class SegmentationTree {
   /// Prints the current state of the model as a graphviz dot file.
   /// @param out An output stream.
   std::ostream& print_dot(std::ostream& out) const;
+
+  /// \overload
+  std::ostream& print_dot_debug() const;
 
  private:
   /// Recursively removes a node rooted at a subtree. This is needed

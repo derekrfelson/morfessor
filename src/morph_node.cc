@@ -27,6 +27,7 @@
 #include <iostream>
 #include <iomanip>
 #include <random>
+#include <fstream>
 
 #include <boost/math/distributions/gamma.hpp>
 #include <boost/math/special_functions/binomial.hpp>
@@ -336,7 +337,8 @@ void SegmentationTree::Optimize() {
   } while (old_cost - new_cost > convergence_threshold_ * unique_morph_types_);
 }
 
-void SegmentationTree::ResplitNode(const std::string& morph) {
+void SegmentationTree::ResplitNode(std::string morph) {
+  assert(morph != "");
   auto frequency = nodes_.at(morph).count;
 
 	// Remove the current representation of the node, if we have it
@@ -379,8 +381,8 @@ void SegmentationTree::ResplitNode(const std::string& morph) {
 	  Split(morph, best_split_index);
 	  assert(nodes_.at(morph).left_child != "");
 	  assert(nodes_.at(morph).right_child != "");
-	  ResplitNode(nodes_.at(morph).left_child );
-	  ResplitNode(nodes_.at(morph).right_child );
+	  ResplitNode(nodes_.at(morph).left_child);
+	  ResplitNode(nodes_.at(morph).right_child);
 	}
 }
 
@@ -418,6 +420,11 @@ std::ostream& SegmentationTree::print_dot(std::ostream& out) const {
   }
   out << "}" << std::endl;
   return out;
+}
+
+std::ostream& SegmentationTree::print_dot_debug() const {
+  auto out = std::ofstream("output-debug.dot");
+  return print_dot(out);
 }
 
 MorphNode::MorphNode()
