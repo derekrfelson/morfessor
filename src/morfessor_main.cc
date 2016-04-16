@@ -99,8 +99,7 @@ int main(int argc, char** argv)
   }
   st.set_hapax_legomena_prior(FLAGS_zipffreqdistr);
   st.set_convergence_threshold(FLAGS_finish);
-  st.set_beta(FLAGS_beta);
-  st.set_most_common_morph_length(FLAGS_most_common_length);
+  st.set_gamma_parameters(FLAGS_most_common_length, FLAGS_beta);
 
   std::cout << st;
   st.Optimize();

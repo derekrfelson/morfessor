@@ -30,6 +30,8 @@
 #include <unordered_map>
 #include <iosfwd>
 
+#include <boost/math/distributions/gamma.hpp>
+
 #include "morph.h"
 #include "types.h"
 
@@ -155,12 +157,9 @@ class SegmentationTree {
 
   /// Calculates the cost of the morph lengths using a Gamma distribution
   /// with 2 parameters.
-  /// @param prior The prior for the most common morph length, such that
-  ///   0 < prior < 24*beta
-  /// @param beta The beta value of the Gamma distribution, such that beta > 0.
+  /// @see set_gamma_parameters
   /// @return Code length (-log_2 probability)
-  Probability ProbabilityFromExplicitLengths(double prior = 7.0,
-      double beta = 1.0) const;
+  Probability ProbabilityFromExplicitLengths() const;
 
   /// Calculates cost of the morph lenghts using an exponential distribution
   /// with no parameters. The likelihood of a morph of a given length decreases
@@ -204,6 +203,21 @@ class SegmentationTree {
   /// \overload
   const MorphNode& at(const std::string& morph) const;
 
+  /// Returns the code length of a morph given its frequency.
+  /// @param count Must be greater than 0.
+  /// @see set_hapax_legomena_prior
+  double explicit_frequency_cost(size_t count) const;
+
+  /// Returns the code length of a morph given its length.
+  /// @param length Must be greater than 0.
+  /// @see set_gamma_parameters
+  double explicit_length_cost(size_t length) const;
+
+  /// Returns the code length of a morph given its length.
+  /// @param length The actual length of the morph, not including the "end of
+  ///   morph" marker.
+  double implicit_length_cost(size_t length) const;
+
   /// Returns the number of nodes in the data structure. This does not form
   /// part of the probabalistic model.
   size_t size() const noexcept;
@@ -215,26 +229,26 @@ class SegmentationTree {
   size_t unique_morph_types() const noexcept;
 
   /// Sets the prior belief for the proportion of morphs that only occur once
-  /// in the corpus.
+  /// in the corpus. Typically this value is between 0.4 and 0.6 for English.
   /// @value The expected proportion. Must be in range (0,1)
   void set_hapax_legomena_prior(double value);
 
   /// Change the threshold for when to stop iterating over the lexicon to
   /// try to improve it.
-  /// @param value Must be in range 0 < value < 1.
+  /// @param value Must be > 0 and < 1.
   void set_convergence_threshold(double value);
+
+  /// Sets the parameters for the gamma distribution. Used for calculating
+  /// the cost of morph lengths explicitly in Morfessor Baseline Length
+  /// and Morfessor Baseline Freq Length modes.
+  /// @param most_common_morph_length Must be > 0 and < 24*beta.
+  /// @param beta Must be > 0.
+  /// @see set_algorithm_mode
+  void set_gamma_parameters(double most_common_morph_length, double beta);
 
   /// Set the variant of the Morfessor Baseline algorithm to use.
   /// @param mode The version to use.
   void set_algorithm_mode(AlgorithmModes mode);
-
-  /// Sets the prior for most common morph length.
-  /// @param value Must be in range 0 < length < 24*beta.
-  void set_most_common_morph_length(double value);
-
-  /// Sets the beta parameter for the length gamma distribution.
-  /// @param value Must be > 0.
-  void set_beta(double value);
 
   /// Prints the current state of the model.
   /// @param out An output stream.
@@ -259,11 +273,18 @@ class SegmentationTree {
   void RemoveNode(const MorphNode& node_to_remove,
       const std::string& subtree_key);
 
-  /// Recursively update the node count for all nodes rooted at a given node.
-  /// If the given node does not exist, creates it.
+  /// Recursively update the morph count for all nodes rooted at a given node.
+  /// If the given node does not exist, creates it. The morph count after
+  /// adjusting by delta must never be negative.
   /// @param subtree_key The subtree we are recursively operating on this time.
   /// @param increase The amount to increase the node count by.
-  void IncreaseNodeCount(const std::string& subtree_key, size_t increase);
+  void AdjustMorphCount(std::string subtree_key, int delta);
+
+  /// Whether to use the zipf distribution for morph lengths.
+  bool explicit_length() const noexcept;
+
+  /// Whether to use the gamma distribution for morph frequencies.
+  bool explicit_frequency() const noexcept;
 
   /// The data structure containing the morphs and their splits.
   std::unordered_map<std::string, MorphNode> nodes_;
@@ -273,6 +294,8 @@ class SegmentationTree {
   Probability pr_corpus_given_model_ = 0;
   Probability pr_frequencies_ = 0;
   Probability pr_lengths_ = 0;
+  Probability pr_log_token_sum_ = 0;
+  Probability pr_morph_strings_ = 0;
 
   /// Number of morph tokens in the data structure. Whereas unique_morph_types_
   /// equals the number of unique morphs, this number factors in the frequency
@@ -283,11 +306,6 @@ class SegmentationTree {
   // this number ignores the frequency, only counting each unique morph once.
   size_t unique_morph_types_ = 0;
 
-  /// The prior belief for the proportion of morphs that only occur once
-  /// in the corpus. Typically this value is between 0.4 and 0.6 for English.
-  /// It must be in the range (0,1).
-  double hapax_legomena_prior_ = 0.5;
-
   /// Optimization stops when one pass of resplitting the lexicon does not
   /// improve the overall cost by more than this amount per word. The smaller
   /// the value, the longer the program will run and the more accurate it will
@@ -295,14 +313,13 @@ class SegmentationTree {
   /// Valid values are between 0 and 1, not inclusive.
   double convergence_threshold_ = 0.005;
 
-  /// Prior for the most common morph length. Used in the explicit length
-  /// calculations to create the alpha parameter for the gamma distribution.
-  /// Must be in range 0 < length < 24*beta.
-  double most_common_morph_length_ = 7.0;
+  /// Number computed from a parameter used for explicit frequency costs.
+  /// @see set_hapax_legomena_prior
+  double log2_hapax_ = -1.0;
 
-  /// Beta parameter for the gamma distribution in the explicit length
-  /// calculation. Must be > 0.
-  double beta_ = 1.0;
+  /// The gamma distribution used for explicit length costs.
+  /// @see set_gamma_parameters
+  boost::math::gamma_distribution<double> gamma_;
 
   /// Governs which variant of the Morfessor Baseline algorithm to use.
   AlgorithmModes algorithm_mode_ = AlgorithmModes::kBaseline;
@@ -317,7 +334,8 @@ inline bool MorphNode::has_children() const noexcept {
 }
 
 template <typename InputIterator>
-SegmentationTree::SegmentationTree(InputIterator first, InputIterator last) {
+SegmentationTree::SegmentationTree(InputIterator first, InputIterator last)
+    : SegmentationTree() {
   while (first != last) {
     total_morph_tokens_ += first->frequency();
     unique_morph_types_ += 1;
@@ -365,7 +383,7 @@ inline size_t SegmentationTree::size() const noexcept {
 
 inline void SegmentationTree::set_hapax_legomena_prior(double value) {
   assert(value > 0 && value < 1);
-  hapax_legomena_prior_ = value;
+  log2_hapax_ = std::log2(1 - value);
 }
 
 inline size_t SegmentationTree::total_morph_tokens() const noexcept {
@@ -385,14 +403,38 @@ inline void SegmentationTree::set_convergence_threshold(double value) {
   convergence_threshold_ = value;
 }
 
-inline void SegmentationTree::set_most_common_morph_length(double value) {
-  assert(value > 0 && value < 24*beta_);
-  most_common_morph_length_ = value;
+inline void SegmentationTree::set_gamma_parameters(
+    double most_common_morph_length, double beta) {
+  assert(beta > 0);
+  assert(most_common_morph_length > 0);
+  assert(most_common_morph_length < 24*beta);
+  gamma_ = boost::math::gamma_distribution<double>{
+    most_common_morph_length / beta + 1, beta};
 }
 
-inline void SegmentationTree::set_beta(double value) {
-  assert(value > 0);
-  beta_ = value;
+inline bool SegmentationTree::explicit_length() const noexcept {
+  return algorithm_mode_ == AlgorithmModes::kBaselineLength
+      || algorithm_mode_ == AlgorithmModes::kBaselineFreqLength;
+}
+
+inline bool SegmentationTree::explicit_frequency() const noexcept {
+  return algorithm_mode_ == AlgorithmModes::kBaselineFreq
+      || algorithm_mode_ == AlgorithmModes::kBaselineFreqLength;
+}
+
+inline double SegmentationTree::explicit_frequency_cost(
+    size_t count) const {
+  return -std::log2(std::pow(count, log2_hapax_)
+                    - std::pow(count + 1, log2_hapax_));
+}
+
+inline double SegmentationTree::explicit_length_cost(
+    size_t length) const {
+  return -std::log2(boost::math::pdf(gamma_, length));
+}
+
+inline double SegmentationTree::implicit_length_cost(size_t length) const {
+  return letter_probabilities_.at('#');
 }
 
 /// Outputs the segmentation tree.

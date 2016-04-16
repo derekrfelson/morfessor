@@ -29,7 +29,6 @@
 #include <random>
 #include <fstream>
 
-#include <boost/math/distributions/gamma.hpp>
 #include <boost/math/special_functions/binomial.hpp>
 
 #include "corpus.h"
@@ -38,7 +37,7 @@
 namespace morfessor {
 
 SegmentationTree::SegmentationTree()
-    : nodes_{} {}
+    : nodes_{}, gamma_{8,1} {}
 
 void SegmentationTree::Split(const std::string& morph, size_t left_length) {
   assert(morph.size() > 1);
@@ -51,8 +50,8 @@ void SegmentationTree::Split(const std::string& morph, size_t left_length) {
   node->left_child = morph.substr(0, left_length);
   node->right_child = morph.substr(left_length);
   total_morph_tokens_ -= node->count;  // No longer a leaf node
-  IncreaseNodeCount(node->left_child, node->count);
-  IncreaseNodeCount(node->right_child, node->count);
+  AdjustMorphCount(node->left_child, node->count);
+  AdjustMorphCount(node->right_child, node->count);
 
   // We lost one unique morph by splitting what we started with, but we
   // may have gained up to two new unique morphs, depending on whether
@@ -62,23 +61,162 @@ void SegmentationTree::Split(const std::string& morph, size_t left_length) {
       + static_cast<int>(nodes_[node->right_child].count == node->count);
 }
 
-void SegmentationTree::IncreaseNodeCount(const std::string& subtree_key,
-    size_t increase) {
-  MorphNode& subtree = nodes_[subtree_key];
 
-  // Recursively update the node's children, if they exist
+void SegmentationTree::RemoveNode(const MorphNode& node_to_remove,
+    const std::string& subtree_key) {
+  MorphNode& subtree = nodes_.at(subtree_key);
+
+  // Recursively remove the node's children, if they exist
   if (!subtree.left_child.empty()) {
-    IncreaseNodeCount(subtree.left_child, increase);
+    RemoveNode(node_to_remove, subtree.left_child);
   }
   if (!subtree.right_child.empty()) {
-    IncreaseNodeCount(subtree.right_child, increase);
+    RemoveNode(node_to_remove, subtree.right_child);
   }
 
-  subtree.count += increase;
+  // Decrease the node count at the subtree
+  auto count_reduction = node_to_remove.count;
+  subtree.count -= count_reduction;
 
-  // Update probabilities if subtree is leaf node
+  // Decrease probabilities if subtree is leaf node
   if (!subtree.has_children()) {
-    total_morph_tokens_ += increase;
+    total_morph_tokens_ -= count_reduction;
+    pr_corpus_given_model_ -= 0;  // TODO: actual logprob
+    pr_frequencies_ -= 0;  // TODO: actual logprob
+  }
+  // If nothing points to the subtree anymore, delete it
+  if (subtree.count == 0) {
+    if (!subtree.has_children()) {
+      unique_morph_types_ -= 1;
+      pr_lengths_ -= 0;  // TODO: actual logprob
+    }
+    nodes_.erase(nodes_.find(subtree_key));
+  }
+}
+
+void SegmentationTree::AdjustMorphCount(std::string subtree_key, int delta) {
+  MorphNode& subtree = nodes_[subtree_key];
+
+  assert(subtree.count + delta >= 0);
+  auto old_count = subtree.count;
+  auto new_count = static_cast<size_t>(subtree.count + delta);
+  auto left_child = subtree.left_child;
+  auto right_child = subtree.right_child;
+  assert (left_child.empty() == right_child.empty());
+
+  if (new_count == 0) {
+    nodes_.erase(nodes_.find(subtree_key));
+  } else {
+    subtree.count = new_count;
+  }
+
+  // Recursively update the node's children, if they exist. Otherwise we
+  // are dealing with a leaf node, and we have to update our costs to account
+  // for the new frequencies. Costs are only over calculated based on leaf
+  // nodes. There's also an adjustment to the cost of describing the corpus
+  // given the model, since we are adjusting the model here.
+  if (!left_child.empty()) {
+
+    AdjustMorphCount(left_child, delta);
+    AdjustMorphCount(right_child, delta);
+  } else {
+    // This will be used in calculating the implicit frequency cost
+    total_morph_tokens_ += delta;
+
+    // To adjust the probabilities, we subtract the old contribution of the
+    // morph and add the contribution of the new count.
+
+    if (old_count > 0) {
+      pr_log_token_sum_ -= old_count * std::log(old_count);  // Corpus cost
+      if (explicit_frequency()) {
+        pr_frequencies_ -= explicit_frequency_cost(old_count);
+      }
+    }
+
+    if (new_count > 0) {
+      pr_log_token_sum_ += new_count * std::log(new_count);  // Corpus cost
+      if (explicit_frequency()) {
+        pr_frequencies_ += explicit_frequency_cost(new_count);
+      }
+    }
+  }
+
+  // If we added or removed a morph, we have to adjust the lengths and
+  // morph string costs as well.
+
+  auto sign = 0;
+  if (old_count == 0 && new_count > 0) {
+    sign = 1;  // Adding a morph
+  }
+  if (new_count == 0 && old_count > 0) {
+    sign = -1;  // Removing a morph
+  }
+
+  unique_morph_types_ += sign;
+
+  if (sign != 0) {
+    // Length costs
+    auto length = subtree_key.length();
+    if (explicit_length()) {
+      pr_lengths_ += sign * explicit_length_cost(length);
+    } else {
+      pr_lengths_ += sign * implicit_length_cost(length);
+      length += 1;  // Treat the end of the morph as a separate character
+    }
+
+    // Morph string costs
+    for (auto letter : subtree_key) {
+      pr_morph_strings_ += sign * letter_probabilities_.at(letter);
+    }
+  }
+}
+
+void SegmentationTree::ResplitNode(std::string morph) {
+  assert(morph != "");
+  auto frequency = nodes_.at(morph).count;
+
+  // Remove the current representation of the node, if we have it
+  if (nodes_.find(morph) != end(nodes_)) {
+    RemoveNode(nodes_.at(morph), morph);
+  }
+
+  // First, try the node as a morph of its own
+  emplace(morph, frequency);
+
+  // Save a copy of this as our current best solution
+  pr_model_given_corpus_ = OverallCost(AlgorithmModes::kBaseline);
+  size_t best_split_index = 0;
+
+  // Save the unsplit version of the data structure for later
+  auto nosplit_pr_model_given_corpus = pr_model_given_corpus_;
+  auto nosplit_unique_morph_types = unique_morph_types_;
+  auto nosplit_total_morph_tokens = total_morph_tokens_;
+  auto nosplit_data_structure = nodes_;
+
+  // Try every split of the node into two substrings
+  for (auto split_index = 1; split_index < morph.size(); ++split_index) {
+    Split(morph, split_index);
+
+    // See if the split improves the cost
+    auto new_overall_cost = OverallCost(algorithm_mode_);
+    if (new_overall_cost < pr_model_given_corpus_) {
+      pr_model_given_corpus_ = new_overall_cost;
+      best_split_index = split_index;
+    }
+
+    // Undo the hypothetical split we just made
+    nodes_ = nosplit_data_structure;
+    unique_morph_types_ = nosplit_unique_morph_types;
+    total_morph_tokens_ = nosplit_total_morph_tokens;
+  }
+
+  // If the model says we should split, then do it and split recursively
+  if (best_split_index > 0) {
+    Split(morph, best_split_index);
+    assert(nodes_.at(morph).left_child != "");
+    assert(nodes_.at(morph).right_child != "");
+    ResplitNode(nodes_.at(morph).left_child);
+    ResplitNode(nodes_.at(morph).right_child);
   }
 }
 
@@ -119,12 +257,10 @@ Probability SegmentationTree::ProbabilityFromImplicitFrequencies() const {
 }
 
 Probability SegmentationTree::ProbabilityFromExplicitFrequencies() const {
-  auto exponent = std::log2(1 - hapax_legomena_prior_);
   Probability sum = 0;
   for (const auto& iter : nodes_) {
     if (!iter.second.has_children()) {
-      sum -= std::log2(std::pow(iter.second.count, exponent)
-                      - std::pow(iter.second.count + 1, exponent));
+      sum += explicit_frequency_cost(iter.second.count);
     }
   }
   return sum;
@@ -198,15 +334,11 @@ Probability SegmentationTree::ProbabilityFromImplicitLengths() const {
   return sum;
 }
 
-Probability SegmentationTree::ProbabilityFromExplicitLengths(
-    double prior, double beta) const {
-  auto alpha = prior / beta + 1;
-  auto gd = boost::math::gamma_distribution<double>{alpha, beta};
-
+Probability SegmentationTree::ProbabilityFromExplicitLengths() const {
   Probability sum = 0;
   for (const auto& iter : nodes_) {
     if (!iter.second.has_children()) {
-      sum -= std::log2(boost::math::pdf(gd, iter.first.length()));
+      sum += explicit_length_cost(iter.second.count);
     }
   }
 
@@ -241,38 +373,6 @@ const {
   // log n! ~ n * log(n - 1)
   return (unique_morph_types_ * (1 - std::log(unique_morph_types_)))
       / std::log(2);
-}
-
-void SegmentationTree::RemoveNode(const MorphNode& node_to_remove,
-    const std::string& subtree_key) {
-  MorphNode& subtree = nodes_.at(subtree_key);
-
-  // Recursively remove the node's children, if they exist
-  if (!subtree.left_child.empty()) {
-    RemoveNode(node_to_remove, subtree.left_child);
-  }
-  if (!subtree.right_child.empty()) {
-    RemoveNode(node_to_remove, subtree.right_child);
-  }
-
-  // Decrease the node count at the subtree
-  auto count_reduction = node_to_remove.count;
-  subtree.count -= count_reduction;
-
-  // Decrease probabilities if subtree is leaf node
-  if (!subtree.has_children()) {
-    total_morph_tokens_ -= count_reduction;
-    pr_corpus_given_model_ -= 0;  // TODO: actual logprob
-    pr_frequencies_ -= 0;  // TODO: actual logprob
-  }
-  // If nothing points to the subtree anymore, delete it
-  if (subtree.count == 0) {
-    if (!subtree.has_children()) {
-      unique_morph_types_ -= 1;
-      pr_lengths_ -= 0;  // TODO: actual logprob
-    }
-    nodes_.erase(nodes_.find(subtree_key));
-  }
 }
 
 Probability SegmentationTree::LexiconCost(AlgorithmModes mode) const {\
@@ -335,55 +435,6 @@ void SegmentationTree::Optimize() {
     new_cost = OverallCost(algorithm_mode_);
     std::cout << *this;
   } while (old_cost - new_cost > convergence_threshold_ * unique_morph_types_);
-}
-
-void SegmentationTree::ResplitNode(std::string morph) {
-  assert(morph != "");
-  auto frequency = nodes_.at(morph).count;
-
-	// Remove the current representation of the node, if we have it
-	if (nodes_.find(morph) != end(nodes_)) {
-	  RemoveNode(nodes_.at(morph), morph);
-	}
-
-	// First, try the node as a morph of its own
-	emplace(morph, frequency);
-
-	// Save a copy of this as our current best solution
-	pr_model_given_corpus_ = OverallCost(AlgorithmModes::kBaseline);
-	size_t best_split_index = 0;
-
-	// Save the unsplit version of the data structure for later
-	auto nosplit_pr_model_given_corpus = pr_model_given_corpus_;
-	auto nosplit_unique_morph_types = unique_morph_types_;
-	auto nosplit_total_morph_tokens = total_morph_tokens_;
-	auto nosplit_data_structure = nodes_;
-
-	// Try every split of the node into two substrings
-	for (auto split_index = 1; split_index < morph.size(); ++split_index) {
-	  Split(morph, split_index);
-
-	  // See if the split improves the cost
-	  auto new_overall_cost = OverallCost(algorithm_mode_);
-	  if (new_overall_cost < pr_model_given_corpus_) {
-	    pr_model_given_corpus_ = new_overall_cost;
-	    best_split_index = split_index;
-	  }
-
-	  // Undo the hypothetical split we just made
-	  nodes_ = nosplit_data_structure;
-	  unique_morph_types_ = nosplit_unique_morph_types;
-	  total_morph_tokens_ = nosplit_total_morph_tokens;
-	}
-
-	// If the model says we should split, then do it and split recursively
-	if (best_split_index > 0) {
-	  Split(morph, best_split_index);
-	  assert(nodes_.at(morph).left_child != "");
-	  assert(nodes_.at(morph).right_child != "");
-	  ResplitNode(nodes_.at(morph).left_child);
-	  ResplitNode(nodes_.at(morph).right_child);
-	}
 }
 
 std::ostream& SegmentationTree::print(std::ostream& out) const {
