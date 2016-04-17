@@ -38,9 +38,11 @@ namespace morfessor {
 
 class Model {
  public:
-  /// C'tor for default model, using the Morfessor Baseline variant which does
-  /// not require any parameters.
-  Model(std::shared_ptr<const Corpus> corpus);
+  /// Makes a model for analyzing the corpus using the chosen algorithm.
+  Model(const Corpus& corpus, AlgorithmModes mode);
+
+  /// D'tor.
+  virtual ~Model();
 
   /// Returns the overall cost, consisting of the cost of the lexicon and
   /// the cost of the corpus given the model.
@@ -54,6 +56,15 @@ class Model {
 
   /// The cost adjustment based on the n! ways to order the morphs.
   Cost lexicon_order_cost() const;
+
+  /// Returns the cost of the morph frequencies.
+  Cost frequency_cost() const;
+
+  /// Returns the cost of the morph lengths.
+  Cost length_cost() const;
+
+  /// Returns the cost of all the morph strings.
+  Cost morph_string_cost() const;
 
   /// Returns the number of morph tokens (unique morphs * their frequencies).
   size_t total_morph_tokens() const noexcept;
@@ -85,6 +96,7 @@ class Model {
   /// A change in overall cost less than this means the algorithm can stop.
   Cost convergence_threshold() const noexcept;
 
+ protected:
   /// Sets the prior belief for the proportion of morphs that only occur once
   /// in the corpus. Typically this value is between 0.4 and 0.6 for English.
   /// @value The expected proportion. Must be in range (0,1)
@@ -102,19 +114,15 @@ class Model {
   /// @see set_algorithm_mode
   void set_gamma_parameters(double most_common_morph_length, double beta);
 
-  /// Set the variant of the Morfessor Baseline algorithm to use.
-  /// @param mode The version to use.
-  void set_algorithm_mode(AlgorithmModes mode);
-
- private:
   /// Recalculates the probabilities of each letter in the corpus, and the
   /// end-of-morph marker.
   /// @param include_end_of_string Whether to consider "end of string" a
   ///   letter when computing probabilities. Should be true when using
   ///   the implicit length variants of the algorithm.
   /// @return A map of letters to code lengths
-  void UpdateLetterProbabilities();
+  void UpdateLetterProbabilities(const Corpus& corpus);
 
+ private:
   /// Whether to use the zipf distribution for morph lengths.
   bool explicit_length() const noexcept;
 
@@ -143,10 +151,6 @@ class Model {
   /// morph's frequency. Frequency must be > 0.
   /// @param frequency Number of times the morph appears in the corpus.
   Cost morph_in_corpus_cost(size_t frequency) const;
-
-  /// We save a pointer to the corpus in case we have to recalculate the
-  /// letter probabilities.
-  std::shared_ptr<const Corpus> corpus_;
 
   /// Part of the lexicon cost.
   Cost cost_from_frequencies_ = 0;
@@ -198,6 +202,32 @@ class Model {
   std::unordered_map<char, Cost> letter_probabilities_;
 };
 
+class BaselineModel : Model {
+ public:
+  BaselineModel(const Corpus& corpus);
+};
+
+class BaselineLengthModel : Model {
+ public:
+  BaselineLengthModel(const Corpus& corpus,
+      double most_common_morph_length = 7.0,
+      double beta = 1.0);
+};
+
+class BaselineFrequencyModel : Model {
+ public:
+  BaselineFrequencyModel(const Corpus& corpus,
+      double hapax_legomena_prior = 0.5);
+};
+
+class BaselineFrequencyLengthModel : Model {
+ public:
+  BaselineFrequencyLengthModel(const Corpus& corpus,
+      double hapax_legomena_prior = 0.5,
+      double most_common_morph_length = 7.0,
+      double beta = 1.0);
+};
+
 inline void Model::set_hapax_legomena_prior(double value) {
   assert(value > 0 && value < 1);
   log2_hapax_ = std::log2(1 - value);
@@ -209,16 +239,6 @@ inline size_t Model::total_morph_tokens() const noexcept {
 
 inline size_t Model::unique_morph_types() const noexcept {
   return unique_morph_types_;
-}
-
-inline void Model::set_algorithm_mode(AlgorithmModes mode) {
-  // We also need to recompute the letter probabilities if we are moving
-  // between implicit lengths and explicit lengths.
-  auto used_explicit_length_before = explicit_length();
-  algorithm_mode_ = mode;
-  if (used_explicit_length_before != explicit_length()) {
-    UpdateLetterProbabilities();
-  }
 }
 
 inline void Model::set_convergence_threshold(double value) {
@@ -281,6 +301,26 @@ inline Cost Model::corpus_cost() const {
 inline Cost Model::lexicon_cost() const {
   return cost_from_lexicon_order_ + cost_from_frequencies_
       + cost_from_lengths_ + cost_from_strings_;
+}
+
+inline Cost Model::frequency_cost() const {
+  if (explicit_frequency()) {
+    return cost_from_frequencies_;
+  } else {
+    return ImplicitFrequencyCost();
+  }
+}
+
+inline Cost Model::length_cost() const {
+  if (explicit_length()) {
+    return cost_from_lengths_;
+  } else {
+    return letter_probabilities_.at('#') * unique_morph_types_;
+  }
+}
+
+inline Cost Model::morph_string_cost() const {
+  return cost_from_strings_;
 }
 
 inline Cost Model::convergence_threshold() const noexcept {

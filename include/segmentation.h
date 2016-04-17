@@ -41,7 +41,8 @@ class Segmentation {
  public:
   /// C'tor that creates an empty segmentation tree. You probably want to use
   /// emplace to add morphs to it after.
-  explicit Segmentation(std::shared_ptr<const Corpus> corpus);
+  explicit Segmentation(std::shared_ptr<const Corpus> corpus,
+      std::shared_ptr<Model> model);
 
   /// Updates the data structure by recursively finding the best split
   /// for each morph.
@@ -92,7 +93,7 @@ class Segmentation {
   std::unordered_map<std::string, MorphNode> nodes_;
 
   /// The probabilistic model that guides the segmentation.
-  Model model_;
+  std::shared_ptr<Model> model_;
 };
 
 inline bool Segmentation::contains(const std::string& morph) const {

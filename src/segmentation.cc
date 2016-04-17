@@ -33,8 +33,9 @@
 
 namespace morfessor {
 
-Segmentation::Segmentation(std::shared_ptr<const Corpus> corpus)
-    : nodes_{}, model_{corpus} {}
+Segmentation::Segmentation(std::shared_ptr<const Corpus> corpus,
+    std::shared_ptr<Model> model)
+    : nodes_{}, corpus_{corpus}, model_{model} {}
 
 void Segmentation::AdjustMorphCount(std::string morph, int delta) {
   // Precondition check: Morph string cannot be empty.

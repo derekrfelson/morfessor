@@ -30,10 +30,37 @@
 
 namespace morfessor {
 
-Model::Model(std::shared_ptr<const Corpus> corpus)
-    : gamma_{8,1}, corpus_{corpus} {
-  UpdateLetterProbabilities();
+BaselineModel::BaselineModel(const Corpus& corpus)
+    : Model(corpus, AlgorithmModes::kBaseline) {}
+
+BaselineLengthModel::BaselineLengthModel(const Corpus& corpus,
+    double most_common_morph_length, double beta)
+    : Model(corpus, AlgorithmModes::kBaselineLength) {
+  set_gamma_parameters(most_common_morph_length, beta);
+  UpdateLetterProbabilities(corpus);
 }
+
+BaselineFrequencyModel::BaselineFrequencyModel(const Corpus& corpus,
+    double hapax_legomena_prior)
+    : Model(corpus, AlgorithmModes::kBaselineFreq) {
+  set_hapax_legomena_prior(hapax_legomena_prior);
+}
+
+BaselineFrequencyLengthModel::BaselineFrequencyLengthModel(
+    const Corpus& corpus, double hapax_legomena_prior,
+    double most_common_morph_length, double beta)
+    : Model(corpus, AlgorithmModes::kBaselineFreqLength) {
+  set_hapax_legomena_prior(hapax_legomena_prior);
+  set_gamma_parameters(most_common_morph_length, beta);
+  UpdateLetterProbabilities(corpus);
+}
+
+Model::Model(const Corpus& corpus, AlgorithmModes mode)
+    : gamma_{8,1}, algorithm_mode_{mode} {
+  UpdateLetterProbabilities(corpus);
+}
+
+Model::~Model() {}
 
 Cost Model::ImplicitFrequencyCost() const {
   // Formula without approximation
@@ -61,7 +88,7 @@ Cost Model::ImplicitFrequencyCost() const {
   }
 }
 
-void Model::UpdateLetterProbabilities()
+void Model::UpdateLetterProbabilities(const Corpus& corpus)
 {
   // Calculate the probabilities of each letter in the corpus
   letter_probabilities_.clear();
@@ -70,7 +97,7 @@ void Model::UpdateLetterProbabilities()
   size_t total_morph_tokens = 0;
 
   // Get the frequency of all the letters first
-  for (auto iter = corpus_->cbegin(); iter != corpus_->cend(); ++iter) {
+  for (auto iter = corpus.cbegin(); iter != corpus.cend(); ++iter) {
     ++unique_morphs;
     total_morph_tokens += iter->frequency();
     for (auto c : iter->letters())
@@ -80,10 +107,6 @@ void Model::UpdateLetterProbabilities()
       letter_probabilities_[c] += iter->frequency();
     }
   }
-
-  // Sanity check
-  assert(unique_morphs == unique_morph_types_);
-  assert(total_morph_tokens == total_morph_tokens_);
 
   if (!explicit_length()) {
     // We count the "end of morph" character as a letter
