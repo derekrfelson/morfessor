@@ -6,7 +6,7 @@ set(CMAKE_BUILD_TYPE Debug)
 # My code
 include_directories("include")
 file(GLOB TESTS "tests/*.cc")
-set(SOURCES "src/corpus.cc" "src/lexicon.cc" "src/morph.cc" "src/morph_node.cc" "src/viterbi.cc")
+set(SOURCES "src/corpus.cc" "src/model.cc" "src/morph.cc" "src/morph_node.cc" "src/viterbi.cc" "src/segmentation.cc")
 set(MAINSOURCE "src/morfessor_main.cc")
 add_executable(morfessor ${SOURCES} ${MAINSOURCE})
 add_executable(morfessor-tests ${SOURCES} ${TESTS})

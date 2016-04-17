@@ -34,12 +34,14 @@ class Morph;
 class Corpus
 {
  public:
+  using iterator = std::vector<Morph>::iterator;
+  using const_iterator = std::vector<Morph>::const_iterator;
   explicit Corpus(std::string word_file);
   size_t size() const noexcept { return words_.size(); }
-  auto begin() noexcept { return words_.begin(); }
-  auto end() noexcept { return words_.end(); }
-  auto cbegin() const noexcept { return words_.cbegin(); }
-  auto cend() const noexcept { return words_.cend(); }
+  iterator begin() noexcept { return words_.begin(); }
+  iterator end() noexcept { return words_.end(); }
+  const_iterator cbegin() const noexcept { return words_.cbegin(); }
+  const_iterator cend() const noexcept { return words_.cend(); }
 
  private:
   std::vector<Morph> words_;

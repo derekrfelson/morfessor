@@ -19,23 +19,3 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-
-#ifndef INCLUDE_LEXICON_H_
-#define INCLUDE_LEXICON_H_
-
-#include <vector>
-
-namespace morfessor
-{
-
-class Morph;
-
-class Lexicon
-{
- private:
-  std::vector<Morph> morphs_;
-};
-
-} // namespace morfessor
-
-#endif /* INCLUDE_LEXICON_H_ */

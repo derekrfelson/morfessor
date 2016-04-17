@@ -25,15 +25,18 @@
 #include <cassert>
 #include <iostream>
 #include <fstream>
+#include <memory>
 
 #include <gflags/gflags.h>
 
 #include "corpus.h"
-#include "morph_node.h"
+#include "model.h"
+#include "segmentation.h"
 
 using Corpus = morfessor::Corpus;
-using SegmentationTree = morfessor::SegmentationTree;
+using Segmentation = morfessor::Segmentation;
 using AlgorithmModes = morfessor::AlgorithmModes;
+using Model = morfessor::Model;
 
 DEFINE_string(mode, "Baseline", "algorithm version to use "
     "(Baseline, Freq, Length, FreqLength)");
@@ -84,22 +87,23 @@ int main(int argc, char** argv)
 
   google::ParseCommandLineFlags(&argc, &argv, true);
 
-  Corpus corpus{FLAGS_data};
-  SegmentationTree st{corpus.begin(), corpus.end()};
+  auto corpus = std::make_shared<const Corpus>(FLAGS_data);
+  Model model{corpus};
+  Segmentation st{corpus};
 
   // Set algorithm parameters
   if (FLAGS_mode == "FreqLength") {
-    st.set_algorithm_mode(AlgorithmModes::kBaselineFreqLength);
+    model.set_algorithm_mode(AlgorithmModes::kBaselineFreqLength);
   } else if (FLAGS_mode == "Freq") {
-    st.set_algorithm_mode(AlgorithmModes::kBaselineFreq);
+    model.set_algorithm_mode(AlgorithmModes::kBaselineFreq);
   } else if (FLAGS_mode == "Length") {
-    st.set_algorithm_mode(AlgorithmModes::kBaselineLength);
+    model.set_algorithm_mode(AlgorithmModes::kBaselineLength);
   } else {
-    st.set_algorithm_mode(AlgorithmModes::kBaseline);
+    model.set_algorithm_mode(AlgorithmModes::kBaseline);
   }
-  st.set_hapax_legomena_prior(FLAGS_zipffreqdistr);
-  st.set_convergence_threshold(FLAGS_finish);
-  st.set_gamma_parameters(FLAGS_most_common_length, FLAGS_beta);
+  model.set_hapax_legomena_prior(FLAGS_zipffreqdistr);
+  model.set_convergence_threshold(FLAGS_finish);
+  model.set_gamma_parameters(FLAGS_most_common_length, FLAGS_beta);
 
   std::cout << st;
   st.Optimize();

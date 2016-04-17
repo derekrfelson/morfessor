@@ -28,7 +28,11 @@
 namespace morfessor
 {
 
+/// An actual probability between 0 and 1.
 using Probability = double;
+
+/// A cost is a -log2 probability, also called code length.
+using Cost = double;
 
 /// Represents the four variants of the Morfessor Baseline algorithm.
 enum class AlgorithmModes : unsigned int {
