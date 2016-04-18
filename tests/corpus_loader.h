@@ -20,37 +20,33 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef INCLUDE_CORPUS_H_
-#define INCLUDE_CORPUS_H_
+#ifndef TESTS_CORPUS_LOADER_H_
+#define TESTS_CORPUS_LOADER_H_
 
-#include <string>
-#include <vector>
-#include <istream>
+#include "corpus.h"
 
-#include "morph.h"
+namespace morfessor {
 
-namespace morfessor
-{
+namespace tests {
 
-class Corpus
-{
+struct CorpusLoader {
  public:
-  using iterator = std::vector<Morph>::iterator;
-  using const_iterator = std::vector<Morph>::const_iterator;
-  explicit Corpus(std::istream& in);
-  explicit Corpus(std::string word_file);
-  size_t size() const noexcept { return words_.size(); }
-  iterator begin() noexcept { return words_.begin(); }
-  iterator end() noexcept { return words_.end(); }
-  const_iterator cbegin() const noexcept { return words_.cbegin(); }
-  const_iterator cend() const noexcept { return words_.cend(); }
+  CorpusLoader()
+     : corpus1{"../testdata/test1.txt"},
+       corpus2{"../testdata/test2.txt"},
+       corpus3{"../testdata/test3.txt"},
+       corpus4{"../testdata/test4.txt"} {}
 
- private:
-  void init(std::istream& in);
-
-  std::vector<Morph> words_;
+  const Corpus corpus1;
+  const Corpus corpus2;
+  const Corpus corpus3;
+  const Corpus corpus4;
 };
 
-} // namespace morfessor
+CorpusLoader& corpus_loader();
 
-#endif /* INCLUDE_CORPUS_H_ */
+}  // namespace tests
+
+}  // namespace morfessor
+
+#endif /* TESTS_CORPUS_LOADER_H_ */

@@ -27,6 +27,7 @@
 #include <gtest/gtest.h>
 
 #include "corpus.h"
+#include "corpus_loader.h"
 
 using Model = morfessor::Model;
 using BaselineFrequencyModel = morfessor::BaselineFrequencyModel;
@@ -34,13 +35,9 @@ using BaselineModel = morfessor::BaselineModel;
 using BaselineLengthModel = morfessor::BaselineLengthModel;
 using BaselineFrequencyLengthModel = morfessor::BaselineFrequencyLengthModel;
 using Corpus = morfessor::Corpus;
+static auto corpus_loader = &morfessor::tests::corpus_loader;
 
 constexpr double threshold = 0.0001;
-
-Corpus corpus1{"../testdata/test1.txt"};
-Corpus corpus2{"../testdata/test2.txt"};
-Corpus corpus3{"../testdata/test3.txt"};
-Corpus corpus4{"../testdata/test4.txt"};
 
 class ModelTests: public ::testing::Test {
  protected:
@@ -139,10 +136,10 @@ class ModelTests: public ::testing::Test {
 class BaselineModelTests: public ModelTests {
  protected:
   virtual void SetUp() {
-    model1 = std::make_unique<BaselineModel>(corpus1);
-    model2 = std::make_unique<BaselineModel>(corpus2);
-    model3 = std::make_unique<BaselineModel>(corpus3);
-    model4 = std::make_unique<BaselineModel>(corpus4);
+    model1 = std::make_unique<BaselineModel>(corpus_loader().corpus1);
+    model2 = std::make_unique<BaselineModel>(corpus_loader().corpus2);
+    model3 = std::make_unique<BaselineModel>(corpus_loader().corpus3);
+    model4 = std::make_unique<BaselineModel>(corpus_loader().corpus4);
   }
 
   virtual void TearDown() {
@@ -152,10 +149,14 @@ class BaselineModelTests: public ModelTests {
 class BaselineFrequencyModelTests: public ModelTests {
  protected:
   virtual void SetUp() {
-    model1 = std::make_unique<BaselineFrequencyModel>(corpus1);
-    model2 = std::make_unique<BaselineFrequencyModel>(corpus2);
-    model3 = std::make_unique<BaselineFrequencyModel>(corpus3);
-    model4 = std::make_unique<BaselineFrequencyModel>(corpus4);
+    model1 = std::make_unique<BaselineFrequencyModel>(
+        corpus_loader().corpus1);
+    model2 = std::make_unique<BaselineFrequencyModel>(
+        corpus_loader().corpus2);
+    model3 = std::make_unique<BaselineFrequencyModel>(
+        corpus_loader().corpus3);
+    model4 = std::make_unique<BaselineFrequencyModel>(
+        corpus_loader().corpus4);
   }
 
   virtual void TearDown() {
@@ -165,10 +166,10 @@ class BaselineFrequencyModelTests: public ModelTests {
 class BaselineLengthModelTests: public ModelTests {
  protected:
   virtual void SetUp() {
-    model1 = std::make_unique<BaselineLengthModel>(corpus1);
-    model2 = std::make_unique<BaselineLengthModel>(corpus2);
-    model3 = std::make_unique<BaselineLengthModel>(corpus3);
-    model4 = std::make_unique<BaselineLengthModel>(corpus4);
+    model1 = std::make_unique<BaselineLengthModel>(corpus_loader().corpus1);
+    model2 = std::make_unique<BaselineLengthModel>(corpus_loader().corpus2);
+    model3 = std::make_unique<BaselineLengthModel>(corpus_loader().corpus3);
+    model4 = std::make_unique<BaselineLengthModel>(corpus_loader().corpus4);
   }
 
   virtual void TearDown() {
@@ -178,10 +179,14 @@ class BaselineLengthModelTests: public ModelTests {
 class BaselineFrequencyLengthModelTests: public ModelTests {
  protected:
   virtual void SetUp() {
-    model1 = std::make_unique<BaselineFrequencyLengthModel>(corpus1);
-    model2 = std::make_unique<BaselineFrequencyLengthModel>(corpus2);
-    model3 = std::make_unique<BaselineFrequencyLengthModel>(corpus3);
-    model4 = std::make_unique<BaselineFrequencyLengthModel>(corpus4);
+    model1 = std::make_unique<BaselineFrequencyLengthModel>(
+        corpus_loader().corpus1);
+    model2 = std::make_unique<BaselineFrequencyLengthModel>(
+        corpus_loader().corpus2);
+    model3 = std::make_unique<BaselineFrequencyLengthModel>(
+        corpus_loader().corpus3);
+    model4 = std::make_unique<BaselineFrequencyLengthModel>(
+        corpus_loader().corpus4);
   }
 
   virtual void TearDown() {

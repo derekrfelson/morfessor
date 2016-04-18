@@ -52,7 +52,7 @@ void Segmentation::AdjustMorphCount(std::string morph, int delta) {
   MorphNode& subtree = nodes_[morph];
 
   // Precondition check: Never allow node counts to become negative.
-  assert(subtree.count + delta >= 0);
+  assert(delta >= 0 || -delta <= subtree.count);
 
   // We'll be changing the data structure, so we save a copy of the information
   // here. Can't trust pointers and references into it once we start adding
@@ -125,7 +125,7 @@ void Segmentation::ResplitNode(std::string morph) {
     AdjustMorphCount(morph, -frequency);
   }
 
-  // First, try the node as a morph of its own.
+  // Recalculate the model with the node unsplit.
   AdjustMorphCount(morph, frequency);
 
   // Save a copy of this as our current best solution.
@@ -155,7 +155,8 @@ void Segmentation::ResplitNode(std::string morph) {
     }
 
     // Undo the hypothetical split we just made
-    AdjustMorphCount(morph, -frequency);
+    AdjustMorphCount(left_child, -frequency);
+    AdjustMorphCount(right_child, -frequency);
   }
 
   if (best_split_index > 0) {
@@ -241,6 +242,16 @@ std::ostream& Segmentation::print_dot(std::ostream& out) const {
 std::ostream& Segmentation::print_dot_debug() const {
   auto out = std::ofstream("output-debug.dot");
   return print_dot(out);
+}
+
+std::ostream& Segmentation::print_as_corpus(std::ostream& out) const {
+  for (const auto& iter : nodes_) {
+    auto& morph_string = iter.first;
+    auto& node = iter.second;
+    if (!node.has_children()) {
+      out << node.count << " " << morph_string << std::endl;
+    }
+  }
 }
 
 } // namespace morfessor

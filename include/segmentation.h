@@ -73,6 +73,11 @@ class Segmentation {
   /// @param out An output stream.
   std::ostream& print(std::ostream& out) const;
 
+  /// Prints the current state of the model, in the expected format for a
+  // corpus.
+  /// @param out An output stream.
+  std::ostream& print_as_corpus(std::ostream& out) const;
+
   /// Prints the current state of the model as a graphviz dot file.
   /// @param out An output stream.
   std::ostream& print_dot(std::ostream& out) const;
@@ -80,7 +85,6 @@ class Segmentation {
   /// \overload
   std::ostream& print_dot_debug() const;
 
- private:
   /// Recursively update the morph count for all nodes rooted at a given node.
   /// If the given node does not exist, creates it. The morph count after
   /// adjusting by delta must never be negative.
@@ -88,6 +92,7 @@ class Segmentation {
   /// @param delta The amount to adjust the count by.
   void AdjustMorphCount(std::string morph, int delta);
 
+ private:
   /// The data structure containing the morphs and their splits.
   std::unordered_map<std::string, MorphNode> nodes_;
 

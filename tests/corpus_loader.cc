@@ -20,37 +20,17 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef INCLUDE_CORPUS_H_
-#define INCLUDE_CORPUS_H_
+#include "corpus_loader.h"
 
-#include <string>
-#include <vector>
-#include <istream>
+namespace morfessor {
 
-#include "morph.h"
+namespace tests {
 
-namespace morfessor
-{
+CorpusLoader& corpus_loader() {
+  static CorpusLoader cl;
+  return cl;
+}
 
-class Corpus
-{
- public:
-  using iterator = std::vector<Morph>::iterator;
-  using const_iterator = std::vector<Morph>::const_iterator;
-  explicit Corpus(std::istream& in);
-  explicit Corpus(std::string word_file);
-  size_t size() const noexcept { return words_.size(); }
-  iterator begin() noexcept { return words_.begin(); }
-  iterator end() noexcept { return words_.end(); }
-  const_iterator cbegin() const noexcept { return words_.cbegin(); }
-  const_iterator cend() const noexcept { return words_.cend(); }
+}  // namespace tests
 
- private:
-  void init(std::istream& in);
-
-  std::vector<Morph> words_;
-};
-
-} // namespace morfessor
-
-#endif /* INCLUDE_CORPUS_H_ */
+}  // namespace morfessor

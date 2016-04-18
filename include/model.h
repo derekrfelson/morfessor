@@ -132,11 +132,6 @@ class Model {
   /// @see set_gamma_parameters
   Cost explicit_length_cost(size_t length) const;
 
-  /// Returns the code length of a morph given its length.
-  /// @param length The actual length of the morph, not including the "end of
-  ///   morph" marker.
-  Cost implicit_length_cost(size_t length) const;
-
   /// Part of the lexicon cost.
   Cost cost_from_frequencies_ = 0;
 
@@ -291,25 +286,6 @@ inline void Model::adjust_corpus_cost(int delta_morph_frequency) {
         delta_morph_frequency * std::log(std::abs(delta_morph_frequency));
 }
 
-/*inline Cost Model::corpus_cost() const {
-  return cost_from_corpus_ / std::log(2);
-}
-
-inline void Model::adjust_corpus_cost(int delta_morph_frequency) {
-  if (delta_morph_frequency >= 0) {
-    cost_from_corpus_ +=
-        delta_morph_frequency * morph_in_corpus_cost(delta_morph_frequency);
-  } else {
-    cost_from_corpus_ -=
-        delta_morph_frequency * morph_in_corpus_cost(-delta_morph_frequency);
-  }
-}
-
-inline Cost Model::morph_in_corpus_cost(size_t frequency) const {
-  assert(frequency > 0);
-  return -std::log(static_cast<double>(frequency) / total_morph_tokens_);
-}*/
-
 // Length cost
 
 inline Cost Model::length_cost() const {
@@ -326,18 +302,14 @@ inline void Model::adjust_length_cost(int delta_morph_length) {
         ? explicit_length_cost(delta_morph_length)
         : -explicit_length_cost(-delta_morph_length);
   } else {
-    cost_from_lengths_ += delta_morph_length >= 0
-        ? implicit_length_cost(delta_morph_length)
-        : -implicit_length_cost(-delta_morph_length);
+    delta_morph_length >= 0
+        ? cost_from_lengths_ += letter_probabilities_.at('#')
+        : cost_from_lengths_ -= letter_probabilities_.at('#');
   }
 }
 
 inline Cost Model::explicit_length_cost(size_t length) const {
   return -std::log2(boost::math::pdf(gamma_, length));
-}
-
-inline Cost Model::implicit_length_cost(size_t length) const {
-  return letter_probabilities_.at('#');
 }
 
 inline bool Model::explicit_length() const noexcept {
