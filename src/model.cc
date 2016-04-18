@@ -112,7 +112,7 @@ void Model::UpdateLetterProbabilities(const Corpus& corpus)
   if (!explicit_length()) {
     // The "end of morph string" character can be understood to appear
     // at the end of every string, i.e. total_morph_tokens number of times.
-    letter_probabilities_['#'] =
+    letter_probabilities_[' '] =
         log_total_letters - std::log2(total_morph_tokens);
   }
 }

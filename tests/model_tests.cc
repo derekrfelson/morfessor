@@ -103,7 +103,7 @@ class ModelTests: public ::testing::Test {
   void check_implicit_letter_probabilities() {
     auto lp = model1->letter_costs();
 
-    EXPECT_NEAR(2.86507, lp['#'], threshold);
+    EXPECT_NEAR(2.86507, lp[' '], threshold);
     EXPECT_NEAR(4.67243, lp['d'], threshold);
     EXPECT_NEAR(3.67243, lp['e'], threshold);
     EXPECT_NEAR(3.08746, lp['g'], threshold);
@@ -119,7 +119,7 @@ class ModelTests: public ::testing::Test {
   void check_explicit_letter_probabilities() {
     auto lp = model1->letter_costs();
 
-    EXPECT_EQ(lp.end(), lp.find('#'));
+    EXPECT_EQ(lp.end(), lp.find(' '));
     EXPECT_NEAR(4.45943, lp['d'], threshold);
     EXPECT_NEAR(3.45943, lp['e'], threshold);
     EXPECT_NEAR(2.87447, lp['g'], threshold);

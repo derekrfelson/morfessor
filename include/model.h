@@ -178,7 +178,7 @@ class Model {
   AlgorithmModes algorithm_mode_ = AlgorithmModes::kBaseline;
 
   /// Contains the probabilities of each letter in the corpus.
-  /// The "end of morph" marker is '#'.
+  /// The "end of morph" marker is ' '.
   std::unordered_map<char, Cost> letter_probabilities_;
 };
 
@@ -292,7 +292,7 @@ inline Cost Model::length_cost() const {
   if (explicit_length()) {
     return cost_from_lengths_;
   } else {
-    return letter_probabilities_.at('#') * unique_morph_types_;
+    return letter_probabilities_.at(' ') * unique_morph_types_;
   }
 }
 
@@ -303,8 +303,8 @@ inline void Model::adjust_length_cost(int delta_morph_length) {
         : -explicit_length_cost(-delta_morph_length);
   } else {
     delta_morph_length >= 0
-        ? cost_from_lengths_ += letter_probabilities_.at('#')
-        : cost_from_lengths_ -= letter_probabilities_.at('#');
+        ? cost_from_lengths_ += letter_probabilities_.at(' ')
+        : cost_from_lengths_ -= letter_probabilities_.at(' ');
   }
 }
 
