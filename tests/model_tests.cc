@@ -69,10 +69,10 @@ class ModelTests: public ::testing::Test {
   }
 
   void check_implicit_length_cost() {
-    EXPECT_NEAR(8.59521, model1->corpus_cost(), threshold);
-    EXPECT_NEAR(11.70400, model2->corpus_cost(), threshold);
-    EXPECT_NEAR(1323.25343, model3->corpus_cost(), threshold);
-    EXPECT_NEAR(410817.33961, model4->corpus_cost(), threshold * 5);
+    EXPECT_NEAR(8.59521, model1->length_cost(), threshold);
+    EXPECT_NEAR(11.70400, model2->length_cost(), threshold);
+    EXPECT_NEAR(1323.25343, model3->length_cost(), threshold);
+    EXPECT_NEAR(410817.33961, model4->length_cost(), threshold * 5);
   }
 
   void check_string_cost_with_implicit_length() {
