@@ -58,7 +58,7 @@ void Segmentation::AdjustMorphCount(std::string morph, int delta) {
   // here. Can't trust pointers and references into it once we start adding
   // and removing nodes, since the map might reorganize its data in memory.
   auto old_count = subtree.count;
-  auto new_count = static_cast<size_t>(subtree.count + delta);
+  auto new_count = subtree.count + delta;
   auto left_child = subtree.left_child;
   auto right_child = subtree.right_child;
 
@@ -84,28 +84,26 @@ void Segmentation::AdjustMorphCount(std::string morph, int delta) {
 
     // To adjust the probabilities, we subtract the old contribution of the
     // morph and add the contribution of the new count.
-
     if (old_count > 0) {
       model_->adjust_corpus_cost(-old_count);
       model_->adjust_frequency_cost(-old_count);
     }
-
     if (new_count > 0) {
       model_->adjust_corpus_cost(new_count);
       model_->adjust_frequency_cost(new_count);
     }
-  }
 
-  if (old_count == 0 && new_count > 0) {
-    // Adding a morph
-    model_->adjust_unique_morph_count(1);
-    model_->adjust_length_cost(morph.length());
-    model_->adjust_string_cost(morph, true);
-  } else if (new_count == 0 && old_count > 0) {
-    // Removing a morph
-    model_->adjust_unique_morph_count(-1);
-    model_->adjust_length_cost(-morph.length());
-    model_->adjust_string_cost(morph, false);
+    if (old_count == 0 && new_count > 0) {
+      // Adding a morph
+      model_->adjust_unique_morph_count(1);
+      model_->adjust_length_cost(morph.length());
+      model_->adjust_string_cost(morph, true);
+    } else if (new_count == 0 && old_count > 0) {
+      // Removing a morph
+      model_->adjust_unique_morph_count(-1);
+      model_->adjust_length_cost(-morph.length());
+      model_->adjust_string_cost(morph, false);
+    }
   }
 }
 
@@ -199,7 +197,6 @@ void Segmentation::Optimize() {
       ResplitNode(key);
     }
     new_cost = model_->overall_cost();
-    std::cout << *this;
   } while (old_cost - new_cost > model_->convergence_threshold());
 }
 

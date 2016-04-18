@@ -50,9 +50,9 @@ static void test_against_reference(
 
   std::stringstream results;
   segmentation.print_as_corpus(results);
-  std::cout << std::endl << "sstream:" << std::endl;
-  segmentation.print_as_corpus(std::cout);
-  std::cout << "end of sstream" << std::endl << std::endl;
+  //std::cout << std::endl << "sstream:" << std::endl;
+  //segmentation.print_as_corpus(std::cout);
+  //std::cout << "end of sstream" << std::endl << std::endl;
   Corpus results_corpus{results};
   T results_model(results_corpus);
 
@@ -70,32 +70,50 @@ static void test_against_reference(
       calculated_model->morph_string_cost(), threshold);
   EXPECT_NEAR(results_model.lexicon_order_cost(),
       calculated_model->lexicon_order_cost(), threshold);
+  EXPECT_EQ(results_model.total_morph_tokens(),
+      calculated_model->total_morph_tokens());
+  EXPECT_EQ(results_model.unique_morph_types(),
+      calculated_model->unique_morph_types());
 }
 
-TEST(SegmentationTests, OptimizeBaselineFreqLength) {
-  auto model1 = std::make_shared<BaselineFrequencyLengthModel>(
-      corpus_loader().corpus1);
-  auto model2 = std::make_shared<BaselineFrequencyLengthModel>(
-      corpus_loader().corpus2);
-  auto model3 = std::make_shared<BaselineFrequencyLengthModel>(
-      corpus_loader().corpus3);
-  auto model4 = std::make_shared<BaselineFrequencyLengthModel>(
-      corpus_loader().corpus4);
-
-  Segmentation s1(corpus_loader().corpus1, model1);
-  Segmentation s2(corpus_loader().corpus2, model2);
-  Segmentation s3(corpus_loader().corpus3, model3);
-  Segmentation s4(corpus_loader().corpus4, model4);
-
+template <class T>
+static void test_optimization(const Corpus& corpus) {
+  auto model = std::make_shared<T>(corpus);
+  Segmentation s1(corpus, model);
   s1.Optimize();
-  s2.Optimize();
-  s3.Optimize();
-  s4.Optimize();
+  test_against_reference(model, s1);
+}
 
-  test_against_reference(model1, s1);
-  test_against_reference(model2, s2);
-  test_against_reference(model3, s3);
-  test_against_reference(model4, s4);
+TEST(SegmentationTests, OptimizeBaselineLengthCorpus1) {
+  test_optimization<BaselineLengthModel>(corpus_loader().corpus1);
+}
+
+TEST(SegmentationTests, OptimizeBaselineLengthCorpus2) {
+  test_optimization<BaselineLengthModel>(corpus_loader().corpus2);
+}
+
+TEST(SegmentationTests, OptimizeBaselineLengthCorpus3) {
+  test_optimization<BaselineLengthModel>(corpus_loader().corpus3);
+}
+
+TEST(SegmentationTests, OptimizeBaselineLengthCorpus4) {
+  test_optimization<BaselineLengthModel>(corpus_loader().corpus4);
+}
+
+TEST(SegmentationTests, OptimizeBaselineFreqLengthCorpus1) {
+  test_optimization<BaselineFrequencyLengthModel>(corpus_loader().corpus1);
+}
+
+TEST(SegmentationTests, OptimizeBaselineFreqLengthCorpus2) {
+  test_optimization<BaselineFrequencyLengthModel>(corpus_loader().corpus2);
+}
+
+TEST(SegmentationTests, OptimizeBaselineFreqLengthCorpus3) {
+  test_optimization<BaselineFrequencyLengthModel>(corpus_loader().corpus3);
+}
+
+TEST(SegmentationTests, OptimizeBaselineFreqLengthCorpus4) {
+  test_optimization<BaselineFrequencyLengthModel>(corpus_loader().corpus4);
 }
 
 TEST(SegmentationTests, AdjustMorphCountCanRemoveNodes) {

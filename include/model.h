@@ -223,7 +223,7 @@ inline size_t Model::total_morph_tokens() const noexcept {
 }
 
 inline void Model::adjust_morph_token_count(int delta) {
-  assert(total_morph_tokens_ + delta >= 0);
+  assert(delta >= 0 || -delta <= total_morph_tokens_);
   total_morph_tokens_ += delta;
 }
 
@@ -234,7 +234,7 @@ inline size_t Model::unique_morph_types() const noexcept {
 }
 
 inline void Model::adjust_unique_morph_count(int delta) {
-  assert(unique_morph_types_ + delta >= 0);
+  assert(delta >= 0 || -delta <= unique_morph_types_);
   unique_morph_types_ += delta;
 }
 
