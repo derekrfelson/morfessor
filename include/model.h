@@ -202,25 +202,25 @@ class Model {
   std::unordered_map<char, Cost> letter_probabilities_;
 };
 
-class BaselineModel : Model {
+class BaselineModel : public Model {
  public:
   BaselineModel(const Corpus& corpus);
 };
 
-class BaselineLengthModel : Model {
+class BaselineLengthModel : public Model {
  public:
   BaselineLengthModel(const Corpus& corpus,
       double most_common_morph_length = 7.0,
       double beta = 1.0);
 };
 
-class BaselineFrequencyModel : Model {
+class BaselineFrequencyModel : public Model {
  public:
   BaselineFrequencyModel(const Corpus& corpus,
       double hapax_legomena_prior = 0.5);
 };
 
-class BaselineFrequencyLengthModel : Model {
+class BaselineFrequencyLengthModel : public Model {
  public:
   BaselineFrequencyLengthModel(const Corpus& corpus,
       double hapax_legomena_prior = 0.5,

@@ -41,8 +41,7 @@ class Segmentation {
  public:
   /// C'tor that creates an empty segmentation tree. You probably want to use
   /// emplace to add morphs to it after.
-  explicit Segmentation(std::shared_ptr<const Corpus> corpus,
-      std::shared_ptr<Model> model);
+  explicit Segmentation(const Corpus& corpus, std::shared_ptr<Model> model);
 
   /// Updates the data structure by recursively finding the best split
   /// for each morph.

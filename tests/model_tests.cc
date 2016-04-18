@@ -33,6 +33,8 @@ using BaselineLengthModel = morfessor::BaselineLengthModel;
 using BaselineFrequencyLengthModel = morfessor::BaselineFrequencyLengthModel;
 using Corpus = morfessor::Corpus;
 
+constexpr double threshold = 0.0001;
+
 void check_explicit_frequency_cost(Model* model1, Model* model2,
     Model* model3, Model* model4) {
   EXPECT_NEAR(7.90689, model1->frequency_cost(), threshold);

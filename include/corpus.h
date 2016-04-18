@@ -26,10 +26,10 @@
 #include <string>
 #include <vector>
 
+#include "morph.h"
+
 namespace morfessor
 {
-
-class Morph;
 
 class Corpus
 {

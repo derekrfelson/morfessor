@@ -33,9 +33,15 @@
 
 namespace morfessor {
 
-Segmentation::Segmentation(std::shared_ptr<const Corpus> corpus,
-    std::shared_ptr<Model> model)
-    : nodes_{}, corpus_{corpus}, model_{model} {}
+Segmentation::Segmentation(const Corpus& corpus, std::shared_ptr<Model> model)
+    : nodes_{}, model_{model} {
+  // The model has already initialized based on the corpus, so here we just
+  // need to add the words to the data structure, without considering their
+  // cost.
+  for (auto iter = corpus.cbegin(); iter != corpus.cend(); ++iter) {
+    nodes_.emplace(iter->letters(), iter->frequency());
+  }
+}
 
 void Segmentation::AdjustMorphCount(std::string morph, int delta) {
   // Precondition check: Morph string cannot be empty.
@@ -74,32 +80,32 @@ void Segmentation::AdjustMorphCount(std::string morph, int delta) {
     AdjustMorphCount(left_child, delta);
     AdjustMorphCount(right_child, delta);
   } else {
-    model_.adjust_morph_token_count(delta);
+    model_->adjust_morph_token_count(delta);
 
     // To adjust the probabilities, we subtract the old contribution of the
     // morph and add the contribution of the new count.
 
     if (old_count > 0) {
-      model_.adjust_corpus_cost(-old_count);
-      model_.adjust_frequency_cost(-old_count);
+      model_->adjust_corpus_cost(-old_count);
+      model_->adjust_frequency_cost(-old_count);
     }
 
     if (new_count > 0) {
-      model_.adjust_corpus_cost(new_count);
-      model_.adjust_frequency_cost(new_count);
+      model_->adjust_corpus_cost(new_count);
+      model_->adjust_frequency_cost(new_count);
     }
   }
 
   if (old_count == 0 && new_count > 0) {
     // Adding a morph
-    model_.adjust_unique_morph_count(1);
-    model_.adjust_length_cost(morph.length());
-    model_.adjust_string_cost(morph, true);
+    model_->adjust_unique_morph_count(1);
+    model_->adjust_length_cost(morph.length());
+    model_->adjust_string_cost(morph, true);
   } else if (new_count == 0 && old_count > 0) {
     // Removing a morph
-    model_.adjust_unique_morph_count(-1);
-    model_.adjust_length_cost(-morph.length());
-    model_.adjust_string_cost(morph, false);
+    model_->adjust_unique_morph_count(-1);
+    model_->adjust_length_cost(-morph.length());
+    model_->adjust_string_cost(morph, false);
   }
 }
 
@@ -123,7 +129,7 @@ void Segmentation::ResplitNode(std::string morph) {
   AdjustMorphCount(morph, frequency);
 
   // Save a copy of this as our current best solution.
-  auto best_cost = model_.overall_cost();
+  auto best_cost = model_->overall_cost();
   size_t best_split_index = 0;
 
   // The model only cares about leaf nodes, and since we're going to try some
@@ -142,7 +148,7 @@ void Segmentation::ResplitNode(std::string morph) {
     AdjustMorphCount(right_child, frequency);
 
     // See if the split improves the cost
-    auto new_cost = model_.overall_cost();
+    auto new_cost = model_->overall_cost();
     if (new_cost < best_cost) {
       best_cost = new_cost;
       best_split_index = split_index;
@@ -181,7 +187,7 @@ void Segmentation::Optimize() {
   std::random_device rd;
   std::mt19937 g(rd());
 
-  auto old_cost = model_.overall_cost();
+  auto old_cost = model_->overall_cost();
   auto new_cost = old_cost;
   do {
     std::shuffle(keys.begin(), keys.end(), g);
@@ -191,15 +197,15 @@ void Segmentation::Optimize() {
     for (const auto& key : keys) {
       ResplitNode(key);
     }
-    new_cost = model_.overall_cost();
+    new_cost = model_->overall_cost();
     std::cout << *this;
-  } while (old_cost - new_cost > model_.convergence_threshold());
+  } while (old_cost - new_cost > model_->convergence_threshold());
 }
 
 std::ostream& Segmentation::print(std::ostream& out) const {
   out << "Overall cost: " << std::setiosflags(std::ios::fixed)
       << std::setprecision(5)
-      << model_.overall_cost() << std::endl;
+      << model_->overall_cost() << std::endl;
   for (const auto& iter : nodes_) {
     if (!iter.second.has_children()) {
       auto& morph_string = iter.first;

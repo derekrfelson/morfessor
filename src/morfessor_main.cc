@@ -42,7 +42,7 @@ DEFINE_string(mode, "Baseline", "algorithm version to use "
     "(Baseline, Freq, Length, FreqLength)");
 DEFINE_string(data, "", "word list to segment");
 DEFINE_string(load, "", "pre-segmented word list to use as model");
-DEFINE_double(zipffreqdistr, 0.5, "prior probability for "
+DEFINE_double(hapax, 0.5, "prior probability for "
     "proportion of morphs that only appear once. Must be in range (0,1)");
 DEFINE_double(finish, 0.005, "threshold for when to stop trying to improve"
     " the lexicon cost. Must be in range (0,1)");
@@ -77,7 +77,7 @@ static bool ValidateLength(const char* flagname, double length) {
 
 int main(int argc, char** argv)
 {
-  gflags::RegisterFlagValidator(&FLAGS_zipffreqdistr, &ValidateProportion);
+  gflags::RegisterFlagValidator(&FLAGS_hapax, &ValidateProportion);
   gflags::RegisterFlagValidator(&FLAGS_finish, &ValidateProportion);
   gflags::RegisterFlagValidator(&FLAGS_data, &ValidateData);
   gflags::RegisterFlagValidator(&FLAGS_load, &ValidateLoad);
@@ -87,23 +87,24 @@ int main(int argc, char** argv)
 
   google::ParseCommandLineFlags(&argc, &argv, true);
 
-  auto corpus = std::make_shared<const Corpus>(FLAGS_data);
-  Model model{corpus};
-  Segmentation st{corpus};
+  Corpus corpus{FLAGS_data};
+  std::shared_ptr<Model> model = nullptr;
 
   // Set algorithm parameters
   if (FLAGS_mode == "FreqLength") {
-    model.set_algorithm_mode(AlgorithmModes::kBaselineFreqLength);
+    model = std::make_shared<morfessor::BaselineModel>(corpus);
   } else if (FLAGS_mode == "Freq") {
-    model.set_algorithm_mode(AlgorithmModes::kBaselineFreq);
+    model = std::make_shared<morfessor::BaselineFrequencyModel>(corpus,
+        FLAGS_hapax);
   } else if (FLAGS_mode == "Length") {
-    model.set_algorithm_mode(AlgorithmModes::kBaselineLength);
+    model = std::make_shared<morfessor::BaselineLengthModel>(corpus,
+        FLAGS_most_common_length, FLAGS_beta);
   } else {
-    model.set_algorithm_mode(AlgorithmModes::kBaseline);
+    model = std::make_shared<morfessor::BaselineFrequencyLengthModel>(corpus,
+        FLAGS_hapax, FLAGS_most_common_length, FLAGS_beta);
   }
-  model.set_hapax_legomena_prior(FLAGS_zipffreqdistr);
-  model.set_convergence_threshold(FLAGS_finish);
-  model.set_gamma_parameters(FLAGS_most_common_length, FLAGS_beta);
+
+  Segmentation st(corpus, model);
 
   std::cout << st;
   st.Optimize();
