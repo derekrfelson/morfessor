@@ -102,6 +102,38 @@ class ModelTests: public ::testing::Test {
     EXPECT_NEAR(-3689.91118, model3->lexicon_order_cost(), threshold);
     EXPECT_NEAR(-2662975.89120, model4->lexicon_order_cost(), threshold);
   }
+
+  void check_implicit_letter_probabilities() {
+    auto lp = model1->letter_costs();
+
+    EXPECT_NEAR(2.86507, lp['#'], threshold);
+    EXPECT_NEAR(4.67243, lp['d'], threshold);
+    EXPECT_NEAR(3.67243, lp['e'], threshold);
+    EXPECT_NEAR(3.08746, lp['g'], threshold);
+    EXPECT_NEAR(3.08746, lp['i'], threshold);
+    EXPECT_NEAR(2.86507, lp['n'], threshold);
+    EXPECT_NEAR(4.08746, lp['o'], threshold);
+    EXPECT_NEAR(5.67243, lp['p'], threshold);
+    EXPECT_NEAR(2.86507, lp['r'], threshold);
+    EXPECT_NEAR(3.67243, lp['t'], threshold);
+    EXPECT_NEAR(3.67243, lp['y'], threshold);
+  }
+
+  void check_explicit_letter_probabilities() {
+    auto lp = model1->letter_costs();
+
+    EXPECT_EQ(lp.end(), lp.find('#'));
+    EXPECT_NEAR(4.45943, lp['d'], threshold);
+    EXPECT_NEAR(3.45943, lp['e'], threshold);
+    EXPECT_NEAR(2.87447, lp['g'], threshold);
+    EXPECT_NEAR(2.87447, lp['i'], threshold);
+    EXPECT_NEAR(2.65208, lp['n'], threshold);
+    EXPECT_NEAR(3.87447, lp['o'], threshold);
+    EXPECT_NEAR(5.45943, lp['p'], threshold);
+    EXPECT_NEAR(2.65208, lp['r'], threshold);
+    EXPECT_NEAR(3.45943, lp['t'], threshold);
+    EXPECT_NEAR(3.45943, lp['y'], threshold);
+  }
 };
 
 class BaselineModelTests: public ModelTests {
@@ -188,6 +220,10 @@ TEST_F(BaselineModelTests, LexiconOrderCost) {
   check_lexicon_order_cost();
 }
 
+TEST_F(BaselineModelTests, IndividualLetterCosts) {
+  check_implicit_letter_probabilities();
+}
+
 // Baseline Frequency Model tests
 
 TEST_F(BaselineFrequencyModelTests, OverallCost) {
@@ -224,6 +260,10 @@ TEST_F(BaselineFrequencyModelTests, LexiconOrderCost) {
   check_lexicon_order_cost();
 }
 
+TEST_F(BaselineFrequencyModelTests, IndividualLetterCosts) {
+  check_implicit_letter_probabilities();
+}
+
 // Baseline Length Model tests
 
 TEST_F(BaselineLengthModelTests, OverallCost) {
@@ -254,6 +294,10 @@ TEST_F(BaselineLengthModelTests, CorpusCost) {
 
 TEST_F(BaselineLengthModelTests, LexiconOrderCost) {
   check_lexicon_order_cost();
+}
+
+TEST_F(BaselineLengthModelTests, IndividualLetterCosts) {
+  check_explicit_letter_probabilities();
 }
 
 // Baseline Frequency Length Model tests
@@ -290,4 +334,8 @@ TEST_F(BaselineFrequencyLengthModelTests, CorpusCost) {
 
 TEST_F(BaselineFrequencyLengthModelTests, LexiconOrderCost) {
   check_lexicon_order_cost();
+}
+
+TEST_F(BaselineFrequencyLengthModelTests, IndividualLetterCosts) {
+  check_explicit_letter_probabilities();
 }

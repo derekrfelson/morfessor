@@ -79,6 +79,13 @@ class Model {
   /// Returns the number of unique morphs in the data structure.
   size_t unique_morph_types() const noexcept;
 
+  /// Returns the convergence threshold. A change in overall cost less than
+  /// this means the algorithm can stop.
+  Cost convergence_threshold() const noexcept;
+
+  /// Returns the map of individual letter costs.
+  std::unordered_map<char, Cost> letter_costs() const noexcept;
+
   /// Adds or subtracts from the morph token count.
   /// @param delta The number of tokens to add or remove.
   void adjust_morph_token_count(int delta);
@@ -99,9 +106,6 @@ class Model {
 
   /// Adjust the string cost based on what string was added or removed.
   void adjust_string_cost(const std::string& str, bool add);
-
-  /// A change in overall cost less than this means the algorithm can stop.
-  Cost convergence_threshold() const noexcept;
 
  private:
   /// Recalculates the probabilities of each letter in the corpus, and the
@@ -291,6 +295,10 @@ inline Cost Model::length_cost() const {
 
 inline Cost Model::morph_string_cost() const {
   return cost_from_strings_;
+}
+
+inline std::unordered_map<char, Cost> Model::letter_costs() const noexcept {
+  return letter_probabilities_;
 }
 
 inline Cost Model::convergence_threshold() const noexcept {
