@@ -31,33 +31,47 @@
 namespace morfessor {
 
 BaselineModel::BaselineModel(const Corpus& corpus)
-    : Model(corpus, AlgorithmModes::kBaseline) {}
+    : Model(corpus, AlgorithmModes::kBaseline, 0.5, 7.0, 1.0) {}
 
 BaselineLengthModel::BaselineLengthModel(const Corpus& corpus,
     double most_common_morph_length, double beta)
-    : Model(corpus, AlgorithmModes::kBaselineLength) {
-  set_gamma_parameters(most_common_morph_length, beta);
-  UpdateLetterProbabilities(corpus);
-}
+    : Model(corpus, AlgorithmModes::kBaselineLength,
+        0.5, most_common_morph_length, beta) {}
 
 BaselineFrequencyModel::BaselineFrequencyModel(const Corpus& corpus,
     double hapax_legomena_prior)
-    : Model(corpus, AlgorithmModes::kBaselineFreq) {
-  set_hapax_legomena_prior(hapax_legomena_prior);
-}
+    : Model(corpus, AlgorithmModes::kBaselineFreq, hapax_legomena_prior,
+        7.0, 1.0) {}
 
 BaselineFrequencyLengthModel::BaselineFrequencyLengthModel(
     const Corpus& corpus, double hapax_legomena_prior,
     double most_common_morph_length, double beta)
-    : Model(corpus, AlgorithmModes::kBaselineFreqLength) {
-  set_hapax_legomena_prior(hapax_legomena_prior);
-  set_gamma_parameters(most_common_morph_length, beta);
-  UpdateLetterProbabilities(corpus);
-}
+    : Model(corpus, AlgorithmModes::kBaselineFreqLength, hapax_legomena_prior,
+        most_common_morph_length, beta) {}
 
-Model::Model(const Corpus& corpus, AlgorithmModes mode)
-    : gamma_{8,1}, algorithm_mode_{mode} {
+Model::Model(const Corpus& corpus, AlgorithmModes mode, double hapax,
+    double most_common_morph_length, double beta)
+    : algorithm_mode_{mode},
+      gamma_{most_common_morph_length / beta + 1, beta} {
+  // Set gamma parameters
+  assert(beta > 0);
+  assert(most_common_morph_length > 0);
+  assert(most_common_morph_length < 24*beta);
+
+  // Set prior for hapax legomena proportion
+  assert(hapax > 0 && hapax < 1);
+  log2_hapax_ = std::log2(1 - hapax);
+
+  // Calculate the initial probabilities
   UpdateLetterProbabilities(corpus);
+  for (auto iter = corpus.cbegin(); iter != corpus.cend(); ++iter) {
+    ++unique_morph_types_;
+    total_morph_tokens_ += iter->frequency();
+    adjust_frequency_cost(iter->frequency());
+    adjust_string_cost(iter->letters(), true);
+    adjust_length_cost(iter->letters().length());
+    adjust_corpus_cost(iter->frequency());
+  }
 }
 
 Model::~Model() {}

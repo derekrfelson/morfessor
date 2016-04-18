@@ -39,7 +39,14 @@ namespace morfessor {
 class Model {
  public:
   /// Makes a model for analyzing the corpus using the chosen algorithm.
-  Model(const Corpus& corpus, AlgorithmModes mode);
+  /// @param hapax The prior belief for the proportion of morphs that only
+  ///   occur once in the corpus. Typically this value is between 0.4 and
+  ///   0.6 for English. Must be > 0 and < 1.
+  /// @param convergence Must be > 0 and < 1.
+  /// @param most_common_morph_length Must be > 0 and < 24*beta.
+  /// @param beta Must be > 0.
+  Model(const Corpus& corpus, AlgorithmModes mode, double hapax,
+      double most_common_morph_len, double beta);
 
   /// D'tor.
   virtual ~Model();
@@ -96,24 +103,7 @@ class Model {
   /// A change in overall cost less than this means the algorithm can stop.
   Cost convergence_threshold() const noexcept;
 
- protected:
-  /// Sets the prior belief for the proportion of morphs that only occur once
-  /// in the corpus. Typically this value is between 0.4 and 0.6 for English.
-  /// @value The expected proportion. Must be in range (0,1)
-  void set_hapax_legomena_prior(double value);
-
-  /// Stop optimizing when the cost per morph improves less than this amount.
-  /// @param value Must be > 0 and < 1.
-  void set_convergence_threshold(double value);
-
-  /// Sets the parameters for the gamma distribution. Used for calculating
-  /// the cost of morph lengths explicitly in Morfessor Baseline Length
-  /// and Morfessor Baseline Freq Length modes.
-  /// @param most_common_morph_length Must be > 0 and < 24*beta.
-  /// @param beta Must be > 0.
-  /// @see set_algorithm_mode
-  void set_gamma_parameters(double most_common_morph_length, double beta);
-
+ private:
   /// Recalculates the probabilities of each letter in the corpus, and the
   /// end-of-morph marker.
   /// @param include_end_of_string Whether to consider "end of string" a
@@ -122,7 +112,6 @@ class Model {
   /// @return A map of letters to code lengths
   void UpdateLetterProbabilities(const Corpus& corpus);
 
- private:
   /// Whether to use the zipf distribution for morph lengths.
   bool explicit_length() const noexcept;
 
@@ -228,31 +217,12 @@ class BaselineFrequencyLengthModel : public Model {
       double beta = 1.0);
 };
 
-inline void Model::set_hapax_legomena_prior(double value) {
-  assert(value > 0 && value < 1);
-  log2_hapax_ = std::log2(1 - value);
-}
-
 inline size_t Model::total_morph_tokens() const noexcept {
   return total_morph_tokens_;
 }
 
 inline size_t Model::unique_morph_types() const noexcept {
   return unique_morph_types_;
-}
-
-inline void Model::set_convergence_threshold(double value) {
-  assert(value > 0 && value < 1);
-  convergence_threshold_ = value;
-}
-
-inline void Model::set_gamma_parameters(
-    double most_common_morph_length, double beta) {
-  assert(beta > 0);
-  assert(most_common_morph_length > 0);
-  assert(most_common_morph_length < 24*beta);
-  gamma_ = boost::math::gamma_distribution<double>{
-    most_common_morph_length / beta + 1, beta};
 }
 
 inline bool Model::explicit_length() const noexcept {
