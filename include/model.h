@@ -132,9 +132,6 @@ class Model {
   /// @see set_gamma_parameters
   Cost explicit_length_cost(size_t length) const;
 
-  /// Calculates the cost from morph frequencies, using the implicit method.
-  Cost ImplicitFrequencyCost() const;
-
   /// Returns the code length of a morph given its length.
   /// @param length The actual length of the morph, not including the "end of
   ///   morph" marker.
@@ -221,82 +218,6 @@ class BaselineFrequencyLengthModel : public Model {
       double beta = 1.0);
 };
 
-inline size_t Model::total_morph_tokens() const noexcept {
-  return total_morph_tokens_;
-}
-
-inline size_t Model::unique_morph_types() const noexcept {
-  return unique_morph_types_;
-}
-
-inline bool Model::explicit_length() const noexcept {
-  return algorithm_mode_ == AlgorithmModes::kBaselineLength
-      || algorithm_mode_ == AlgorithmModes::kBaselineFreqLength;
-}
-
-inline bool Model::explicit_frequency() const noexcept {
-  return algorithm_mode_ == AlgorithmModes::kBaselineFreq
-      || algorithm_mode_ == AlgorithmModes::kBaselineFreqLength;
-}
-
-inline Cost Model::explicit_frequency_cost(size_t frequency) const {
-  return -std::log2(std::pow(frequency, log2_hapax_)
-                    - std::pow(frequency + 1, log2_hapax_));
-}
-
-inline Cost Model::explicit_length_cost(size_t length) const {
-  return -std::log2(boost::math::pdf(gamma_, length));
-}
-
-inline Cost Model::implicit_length_cost(size_t length) const {
-  return letter_probabilities_.at('#');
-}
-
-inline Cost Model::morph_in_corpus_cost(size_t frequency) const {
-  assert(frequency > 0);
-  return std::log(static_cast<double>(frequency) / total_morph_tokens_);
-}
-
-inline Cost Model::lexicon_order_cost() const {
-  // Use the first term of Sterling's approximation
-  // log n! ~ n * log(n - 1)
-  return (unique_morph_types_ * (1 - std::log(unique_morph_types_)))
-      / std::log(2);
-}
-
-inline Cost Model::overall_cost() const {
-  return lexicon_cost() + corpus_cost();
-}
-
-inline Cost Model::corpus_cost() const {
-  return cost_from_corpus_ / std::log(2);
-}
-
-inline Cost Model::lexicon_cost() const {
-  return cost_from_lexicon_order_ + cost_from_frequencies_
-      + cost_from_lengths_ + cost_from_strings_;
-}
-
-inline Cost Model::frequency_cost() const {
-  if (explicit_frequency()) {
-    return cost_from_frequencies_;
-  } else {
-    return ImplicitFrequencyCost();
-  }
-}
-
-inline Cost Model::length_cost() const {
-  if (explicit_length()) {
-    return cost_from_lengths_;
-  } else {
-    return letter_probabilities_.at('#') * unique_morph_types_;
-  }
-}
-
-inline Cost Model::morph_string_cost() const {
-  return cost_from_strings_;
-}
-
 inline std::unordered_map<char, Cost> Model::letter_costs() const noexcept {
   return letter_probabilities_;
 }
@@ -305,14 +226,41 @@ inline Cost Model::convergence_threshold() const noexcept {
   return convergence_threshold_ * unique_morph_types_;
 }
 
+// Morph token count
+
+inline size_t Model::total_morph_tokens() const noexcept {
+  return total_morph_tokens_;
+}
+
 inline void Model::adjust_morph_token_count(int delta) {
   assert(total_morph_tokens_ + delta >= 0);
   total_morph_tokens_ += delta;
 }
 
+// Unique morph count
+
+inline size_t Model::unique_morph_types() const noexcept {
+  return unique_morph_types_;
+}
+
 inline void Model::adjust_unique_morph_count(int delta) {
   assert(unique_morph_types_ + delta >= 0);
   unique_morph_types_ += delta;
+}
+
+// Frequency cost
+
+inline Cost Model::frequency_cost() const {
+  if (explicit_frequency()) {
+    return cost_from_frequencies_;
+  } else {
+    // Formula with logarithmic approximation to binomial coefficients
+    // based on Stirling's approximation.
+    return (total_morph_tokens_ - 1) * std::log2(total_morph_tokens_ - 2)
+          - (unique_morph_types_ - 1) * std::log2(unique_morph_types_ - 2)
+          - (total_morph_tokens_ - unique_morph_types_)
+            * std::log2(total_morph_tokens_ - unique_morph_types_ - 1);
+  }
 }
 
 inline void Model::adjust_frequency_cost(int delta_morph_frequency) {
@@ -326,10 +274,45 @@ inline void Model::adjust_frequency_cost(int delta_morph_frequency) {
   }
 }
 
+inline Cost Model::explicit_frequency_cost(size_t frequency) const {
+  return -std::log2(std::pow(frequency, log2_hapax_)
+                    - std::pow(frequency + 1, log2_hapax_));
+}
+
+inline bool Model::explicit_frequency() const noexcept {
+  return algorithm_mode_ == AlgorithmModes::kBaselineFreq
+      || algorithm_mode_ == AlgorithmModes::kBaselineFreqLength;
+}
+
+// Corpus cost
+
+inline Cost Model::corpus_cost() const {
+  return cost_from_corpus_ / std::log(2);
+}
+
 inline void Model::adjust_corpus_cost(int delta_morph_frequency) {
-  cost_from_corpus_ += delta_morph_frequency >= 0
-      ? delta_morph_frequency * morph_in_corpus_cost(delta_morph_frequency)
-      : -delta_morph_frequency * morph_in_corpus_cost(-delta_morph_frequency);
+  if (delta_morph_frequency >= 0) {
+    cost_from_corpus_ +=
+        delta_morph_frequency * morph_in_corpus_cost(delta_morph_frequency);
+  } else {
+    cost_from_corpus_ -=
+        delta_morph_frequency * morph_in_corpus_cost(-delta_morph_frequency);
+  }
+}
+
+inline Cost Model::morph_in_corpus_cost(size_t frequency) const {
+  assert(frequency > 0);
+  return -std::log(static_cast<double>(frequency) / total_morph_tokens_);
+}
+
+// Length cost
+
+inline Cost Model::length_cost() const {
+  if (explicit_length()) {
+    return cost_from_lengths_;
+  } else {
+    return letter_probabilities_.at('#') * unique_morph_types_;
+  }
 }
 
 inline void Model::adjust_length_cost(int delta_morph_length) {
@@ -344,12 +327,53 @@ inline void Model::adjust_length_cost(int delta_morph_length) {
   }
 }
 
+inline Cost Model::explicit_length_cost(size_t length) const {
+  return -std::log2(boost::math::pdf(gamma_, length));
+}
+
+inline Cost Model::implicit_length_cost(size_t length) const {
+  return letter_probabilities_.at('#');
+}
+
+inline bool Model::explicit_length() const noexcept {
+  return algorithm_mode_ == AlgorithmModes::kBaselineLength
+      || algorithm_mode_ == AlgorithmModes::kBaselineFreqLength;
+}
+
+// Morph string cost
+
+inline Cost Model::morph_string_cost() const {
+  return cost_from_strings_;
+}
+
 inline void Model::adjust_string_cost(const std::string& str, bool add) {
   Cost sum = 0;
   for (auto c : str) {
     sum += letter_probabilities_.at(c);
   }
   cost_from_strings_ += (add ? 1 : -1) * sum;
+}
+
+// Lexicon order cost
+
+inline Cost Model::lexicon_order_cost() const {
+  // Use the first term of Sterling's approximation
+  // log n! ~ n * log(n - 1)
+  return (unique_morph_types_ * (1 - std::log(unique_morph_types_)))
+      / std::log(2);
+}
+
+// Lexicon cost
+
+inline Cost Model::lexicon_cost() const {
+  return cost_from_lexicon_order_ + cost_from_frequencies_
+      + cost_from_lengths_ + cost_from_strings_;
+}
+
+// Overall cost
+
+inline Cost Model::overall_cost() const {
+  return lexicon_cost() + corpus_cost();
 }
 
 }  // namespace morfessor

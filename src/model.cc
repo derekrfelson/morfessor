@@ -24,8 +24,6 @@
 
 #include <cmath>
 
-#include <boost/math/special_functions/binomial.hpp>
-
 #include "morph.h"
 
 namespace morfessor {
@@ -62,11 +60,16 @@ Model::Model(const Corpus& corpus, AlgorithmModes mode, double hapax,
   assert(hapax > 0 && hapax < 1);
   log2_hapax_ = std::log2(1 - hapax);
 
-  // Calculate the initial probabilities
-  UpdateLetterProbabilities(corpus);
+  // We have to know this before we can accurately calculate some of the
+  // adjustments later on.
   for (auto iter = corpus.cbegin(); iter != corpus.cend(); ++iter) {
     ++unique_morph_types_;
     total_morph_tokens_ += iter->frequency();
+  }
+
+  UpdateLetterProbabilities(corpus);
+
+  for (auto iter = corpus.cbegin(); iter != corpus.cend(); ++iter) {
     adjust_frequency_cost(iter->frequency());
     adjust_string_cost(iter->letters(), true);
     adjust_length_cost(iter->letters().length());
@@ -75,32 +78,6 @@ Model::Model(const Corpus& corpus, AlgorithmModes mode, double hapax,
 }
 
 Model::~Model() {}
-
-Cost Model::ImplicitFrequencyCost() const {
-  // Formula without approximation
-  if (total_morph_tokens_ < 100) {
-    return std::log2(boost::math::binomial_coefficient<Probability>(
-        total_morph_tokens_ - 1, unique_morph_types_ - 1));
-  } else {
-    // Formula with logarithmic approximation to binomial coefficients
-    // based on Stirling's approximation
-    //
-    // return (total_morph_tokens_ - 1) * std::log2(total_morph_tokens_ - 2)
-    // - (unique_morph_types - 1) * std::log2(unique_morph_types_ - 2)
-    // - (total_morph_tokens_ - unique_morph_types_)
-    //  * std::log2(total_morph_tokens_ - unique_morph_types_ - 1);
-    //
-    // The above should be the correct forumula to use here for a fast
-    // approximation, but the Morfessor reference implementation uses
-    // a slightly different version, which is used below.
-    //
-    // Formula from reference implementation
-    return (total_morph_tokens_ - 1) * std::log2(total_morph_tokens_ - 2)
-          - (unique_morph_types_ - 1) * std::log2(unique_morph_types_ - 2)
-          - (total_morph_tokens_ - unique_morph_types_)
-            * std::log2(total_morph_tokens_ - unique_morph_types_ - 1);
-  }
-}
 
 void Model::UpdateLetterProbabilities(const Corpus& corpus)
 {
