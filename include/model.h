@@ -137,11 +137,6 @@ class Model {
   ///   morph" marker.
   Cost implicit_length_cost(size_t length) const;
 
-  /// The cost an individual morph contributed to the corpus, based on the
-  /// morph's frequency. Frequency must be > 0.
-  /// @param frequency Number of times the morph appears in the corpus.
-  Cost morph_in_corpus_cost(size_t frequency) const;
-
   /// Part of the lexicon cost.
   Cost cost_from_frequencies_ = 0;
 
@@ -287,6 +282,16 @@ inline bool Model::explicit_frequency() const noexcept {
 // Corpus cost
 
 inline Cost Model::corpus_cost() const {
+  return (total_morph_tokens_ * log(total_morph_tokens_)
+      - cost_from_corpus_log_token_sum_) / std::log(2);
+}
+
+inline void Model::adjust_corpus_cost(int delta_morph_frequency) {
+    cost_from_corpus_log_token_sum_ +=
+        delta_morph_frequency * std::log(std::abs(delta_morph_frequency));
+}
+
+/*inline Cost Model::corpus_cost() const {
   return cost_from_corpus_ / std::log(2);
 }
 
@@ -303,7 +308,7 @@ inline void Model::adjust_corpus_cost(int delta_morph_frequency) {
 inline Cost Model::morph_in_corpus_cost(size_t frequency) const {
   assert(frequency > 0);
   return -std::log(static_cast<double>(frequency) / total_morph_tokens_);
-}
+}*/
 
 // Length cost
 

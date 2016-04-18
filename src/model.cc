@@ -62,14 +62,11 @@ Model::Model(const Corpus& corpus, AlgorithmModes mode, double hapax,
 
   // We have to know this before we can accurately calculate some of the
   // adjustments later on.
-  for (auto iter = corpus.cbegin(); iter != corpus.cend(); ++iter) {
-    ++unique_morph_types_;
-    total_morph_tokens_ += iter->frequency();
-  }
-
   UpdateLetterProbabilities(corpus);
 
   for (auto iter = corpus.cbegin(); iter != corpus.cend(); ++iter) {
+    ++unique_morph_types_;
+    total_morph_tokens_ += iter->frequency();
     adjust_frequency_cost(iter->frequency());
     adjust_string_cost(iter->letters(), true);
     adjust_length_cost(iter->letters().length());
