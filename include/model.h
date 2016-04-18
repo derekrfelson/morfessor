@@ -366,8 +366,8 @@ inline Cost Model::lexicon_order_cost() const {
 // Lexicon cost
 
 inline Cost Model::lexicon_cost() const {
-  return cost_from_lexicon_order_ + cost_from_frequencies_
-      + cost_from_lengths_ + cost_from_strings_;
+  return lexicon_order_cost() + frequency_cost()
+      + length_cost() + morph_string_cost();
 }
 
 // Overall cost
