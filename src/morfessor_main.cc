@@ -87,30 +87,43 @@ int main(int argc, char** argv)
 
   google::ParseCommandLineFlags(&argc, &argv, true);
 
-  Corpus corpus{FLAGS_data};
+  std::shared_ptr<Corpus> corpus = nullptr;
   std::shared_ptr<Model> model = nullptr;
+
+  if (FLAGS_load.empty()) {
+    corpus = std::make_shared<Corpus>(FLAGS_data);
+  } else {
+    corpus = std::make_shared<Corpus>(FLAGS_load);
+  }
 
   // Set algorithm parameters
   if (FLAGS_mode == "FreqLength") {
-    model = std::make_shared<morfessor::BaselineModel>(corpus);
+    model = std::make_shared<morfessor::BaselineModel>(*corpus);
   } else if (FLAGS_mode == "Freq") {
-    model = std::make_shared<morfessor::BaselineFrequencyModel>(corpus,
+    model = std::make_shared<morfessor::BaselineFrequencyModel>(*corpus,
         FLAGS_hapax);
   } else if (FLAGS_mode == "Length") {
-    model = std::make_shared<morfessor::BaselineLengthModel>(corpus,
+    model = std::make_shared<morfessor::BaselineLengthModel>(*corpus,
         FLAGS_most_common_length, FLAGS_beta);
   } else {
-    model = std::make_shared<morfessor::BaselineFrequencyLengthModel>(corpus,
+    model = std::make_shared<morfessor::BaselineFrequencyLengthModel>(*corpus,
         FLAGS_hapax, FLAGS_most_common_length, FLAGS_beta);
   }
 
-  Segmentation st(corpus, model);
-
-  std::cout << st;
-  st.Optimize();
-  auto out = std::ofstream("output.dot");
-  st.print_dot(out);
-  std::cout << st;
+  if (FLAGS_load.empty()) {
+    Segmentation st(*corpus, model);
+    st.Optimize();
+    auto out = std::ofstream("output.dot");
+    st.print_dot(out);
+    std::cout << st;
+  } else {
+    Segmentation st(*corpus, model);
+    Corpus test_corpus{FLAGS_data};
+    auto segments = st.SegmentTestCorpus(test_corpus);
+    for (auto word_splits : *segments) {
+      std::cout << word_splits << std::endl;
+    }
+  }
 
   return 0;
 }

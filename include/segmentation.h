@@ -28,6 +28,8 @@
 #include <unordered_map>
 #include <iosfwd>
 #include <memory>
+#include <vector>
+#include <string>
 
 #include "morph.h"
 #include "model.h"
@@ -39,9 +41,16 @@ namespace morfessor {
 /// Stores recursive segmentations of a set of words.
 class Segmentation {
  public:
-  /// C'tor that creates an empty segmentation tree. You probably want to use
-  /// emplace to add morphs to it after.
-  explicit Segmentation(const Corpus& corpus, std::shared_ptr<Model> model);
+  /// C'tor that initializes the segmentation with every word in the
+  /// training corpus as its own morph.
+  /// @param corpus The words in the corpus and their frequencies.
+  /// @param model The cost model to use when optimizing the segmentation.
+  explicit Segmentation(const Corpus& training_corpus,
+      std::shared_ptr<Model> model);
+
+  /// Returns the best splits for a test corpus given the current segmentation.
+  std::shared_ptr<std::vector<std::string> >
+  SegmentTestCorpus(const Corpus& test_corpus);
 
   /// Updates the data structure by recursively finding the best split
   /// for each morph.
@@ -56,6 +65,13 @@ class Segmentation {
   /// @param morph The word or morph to recursively split. Cannot be empty
   ///   string.
   void ResplitNode(std::string morph);
+
+  /// Recursively update the morph count for all nodes rooted at a given node.
+  /// If the given node does not exist, creates it. The morph count after
+  /// adjusting by delta must never be negative.
+  /// @param morph The morph to adjust the count of. Cannot be empty string.
+  /// @param delta The amount to adjust the count by.
+  void AdjustMorphCount(std::string morph, int delta);
 
   /// Returns true if the given morph is in the data structure.
   /// @param morph The word or morph to look for.
@@ -84,13 +100,6 @@ class Segmentation {
 
   /// \overload
   std::ostream& print_dot_debug() const;
-
-  /// Recursively update the morph count for all nodes rooted at a given node.
-  /// If the given node does not exist, creates it. The morph count after
-  /// adjusting by delta must never be negative.
-  /// @param morph The morph to adjust the count of. Cannot be empty string.
-  /// @param delta The amount to adjust the count by.
-  void AdjustMorphCount(std::string morph, int delta);
 
  private:
   /// The data structure containing the morphs and their splits.

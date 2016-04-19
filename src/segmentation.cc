@@ -27,20 +27,87 @@
 #include <iomanip>
 #include <random>
 #include <fstream>
+#include <vector>
+#include <memory>
 
 #include "corpus.h"
 #include "morph.h"
 
 namespace morfessor {
 
-Segmentation::Segmentation(const Corpus& corpus, std::shared_ptr<Model> model)
+Segmentation::Segmentation(const Corpus& training_corpus,
+    std::shared_ptr<Model> model)
     : nodes_{}, model_{model} {
   // The model has already initialized based on the corpus, so here we just
   // need to add the words to the data structure, without considering their
   // cost.
-  for (auto iter = corpus.cbegin(); iter != corpus.cend(); ++iter) {
+  for (auto iter = training_corpus.cbegin(); iter != training_corpus.cend();
+      ++iter) {
     nodes_.emplace(iter->letters(), iter->frequency());
   }
+}
+
+std::shared_ptr<std::vector<std::string> >
+Segmentation::SegmentTestCorpus(const Corpus& test_corpus) {
+  auto segmentations = std::make_shared<std::vector<std::string> >();
+  segmentations->reserve(test_corpus.size());
+
+  auto log_token_count =
+      std::log(model_->total_morph_tokens());
+
+  for (auto iter = test_corpus.cbegin(); iter != test_corpus.cend(); ++iter) {
+    auto word = iter->letters();
+    auto word_length = iter->length();
+    auto count = iter->frequency();
+
+    double bad_likelihood = (word_length + 1) * log_token_count;
+    double pseudo_infinite_cost = (word_length + 1) * bad_likelihood;
+
+    std::vector<double> delta(word_length + 1, 0.0);
+    std::vector<double> psi(word_length + 1, 0.0);
+
+    for (auto end_index = 1; end_index <= word_length; ++end_index) {
+      double best_delta = pseudo_infinite_cost;
+      double best_length = 0;
+
+      for (auto morph_length = 1; morph_length <= end_index; ++morph_length) {
+        auto morph = word.substr(end_index - morph_length, morph_length);
+        auto morph_cost = 0;
+        if (contains(morph)) {
+          morph_cost = log_token_count - std::log(at(morph).count);
+        } else if (morph_length == 1) {
+          // The morph was undefined, and only one letter long. Accept
+          // it with a bad likelihood.
+          morph_cost = bad_likelihood;
+        } else {
+          // The morph was undefined. Keep looking elsewhere.
+          continue;
+        }
+
+        assert(end_index >= morph_length && end_index - morph_length < delta.size());
+        double current_delta = delta[end_index - morph_length] + morph_cost;
+        if (current_delta < best_delta) {
+          best_delta = current_delta;
+          best_length = morph_length;
+        }
+      }  // for each morph_length
+
+      assert(end_index > 0 && end_index < delta.size());
+      delta[end_index] = best_delta;
+      psi[end_index] = best_length;
+    }  // for each end_index
+
+    std::string str = "";
+    auto end_index = word_length;
+    while (psi[end_index] != 0) {
+      assert(end_index > 0 && end_index < psi.size());
+      str = word.substr(end_index - psi[end_index], psi[end_index]) + " " + str;
+      end_index -= psi[end_index];
+    }
+    segmentations->push_back(str);
+  }  // for each word
+
+  return segmentations;
 }
 
 void Segmentation::AdjustMorphCount(std::string morph, int delta) {
